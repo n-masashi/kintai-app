@@ -1,0 +1,34 @@
+﻿{
+    "shift_types":  [
+                        "日勤",
+                        "早番",
+                        "遅番",
+                        "深夜",
+                        "シフト休",
+                        "振休",
+                        "0.5日有給",
+                        "1.0日有給",
+                        "健康診断(半日)",
+                        "1日人間ドック",
+                        "慶弔休暇"
+                    ],
+    "user_info":  {
+                      "ad_username":  "tarou",
+                      "full_name":  "例名 太郎",
+                      "teams_principal_id":  "tarou@example.com",
+                      "shift_display_name":  "例名",
+                      "timesheet_display_name":  "例名"
+                  },
+    "teams_workflow":  {
+                           "webhook_url":  ""
+                       },
+    "managers":  [
+                     {
+                         "name":  "例名",
+                         "teams_principal_id":  "tarou@example.com"
+                     }
+                 ],
+    "theme":  "light",
+    "timesheet_folder":  "timesheet",
+    "attendance_data_folder":  "attendance_folder"
+}

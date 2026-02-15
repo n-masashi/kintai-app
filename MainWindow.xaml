@@ -1,0 +1,335 @@
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="勤怠打刻"
+        Width="800"
+        Height="550"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="CanResize"
+        MinWidth="800"
+        MinHeight="550"
+        Background="Transparent">
+    <Window.Resources>
+        <!-- Buttonのデフォルトホバー色(青)を無効化 -->
+        <Style TargetType="Button">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style TargetType="TabControl">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        <Style TargetType="TabItem">
+            <Setter Property="FontFamily" Value="Yu Gothic UI"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="Foreground" Value="Transparent"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Border Name="Border" Background="Transparent" CornerRadius="12,12,0,0" Padding="20,10" Margin="2,0">
+                            <ContentPresenter x:Name="ContentSite" ContentSource="Header" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Border" Property="Background" Value="Transparent"/>
+                                <Setter Property="Foreground" Value="Transparent"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="False">
+                                <Setter TargetName="Border" Property="Background" Value="Transparent"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Border" Property="Background" Value="Transparent"/>
+                                <Setter Property="Foreground" Value="Transparent"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <TabControl x:Name="MainTabControl" Margin="10">
+        <TabItem Header="打刻">
+            <Grid x:Name="MainTabGrid" Background="Transparent">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- 左側: カレンダー -->
+                <Border x:Name="CalendarBorder" Grid.Column="0" Margin="10" Padding="10" BorderThickness="1">
+                    <Grid x:Name="CalendarContainer">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- 月ナビゲーション -->
+                        <Grid Grid.Row="0" Margin="5">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="50"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="50"/>
+                            </Grid.ColumnDefinitions>
+
+                            <Button x:Name="BtnPrevMonth" Grid.Column="0" Content="&lt;" FontSize="16" FontWeight="Bold" Background="Transparent" BorderThickness="0" Cursor="Hand"/>
+                            <TextBlock x:Name="TxtMonthTitle" Grid.Column="1" Text="2026年 2月" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <Button x:Name="BtnNextMonth" Grid.Column="2" Content="&gt;" FontSize="16" FontWeight="Bold" Background="Transparent" BorderThickness="0" Cursor="Hand"/>
+                        </Grid>
+
+                        <!-- 曜日ヘッダー -->
+                        <UniformGrid x:Name="DayOfWeekHeader" Grid.Row="1" Rows="1" Columns="7" Margin="5,10,5,5"/>
+
+                        <!-- 日付グリッド -->
+                        <UniformGrid x:Name="CalendarGrid" Grid.Row="2" Columns="7" Margin="5"/>
+                    </Grid>
+                </Border>
+
+                <!-- 右側: コントロールパネル -->
+                <Border x:Name="ControlPanelBorder" Grid.Column="1" Margin="10" Padding="15" BorderThickness="1">
+                    <StackPanel>
+                        <!-- 日付・時計・Timesheetボタン -->
+                        <Border x:Name="TimeDisplayBorder" Margin="0,0,0,10">
+                            <StackPanel HorizontalAlignment="Center">
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                    <TextBlock x:Name="TxtDate" VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="TxtTime" VerticalAlignment="Center" FontFamily="Consolas"/>
+                                </StackPanel>
+                                <Button x:Name="BtnTimesheet" Content="Timesheet Check" Background="Transparent" BorderThickness="0" Cursor="Hand" HorizontalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- 出勤形態 -->
+                        <TextBlock x:Name="LblShiftType" Text="出勤形態" FontWeight="Bold" FontSize="11" Margin="0,0,0,5"/>
+                        <ComboBox x:Name="CmbShiftType" FontSize="11" Height="28" Margin="0,0,0,10"/>
+
+                        <!-- 出勤形式 & オプション -->
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="0.42*"/>
+                                <ColumnDefinition Width="10"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- 出勤形式 -->
+                            <StackPanel Grid.Column="0">
+                                <TextBlock x:Name="LblWorkStyle" Text="出勤形式" FontWeight="Bold" FontSize="11" Margin="0,0,0,5"/>
+                                <Border x:Name="WorkStyleBorder" Padding="8,4">
+                                    <StackPanel>
+                                        <RadioButton x:Name="RadioRemote" Content="リモート" FontSize="11" IsChecked="True" Margin="0,2"/>
+                                        <RadioButton x:Name="RadioOffice" Content="出社" FontSize="11" Margin="0,2"/>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+
+                            <!-- オプション -->
+                            <StackPanel Grid.Column="2">
+                                <TextBlock x:Name="LblOptions" Text="オプション" FontWeight="Bold" FontSize="11" Margin="0,0,0,5"/>
+                                <Border x:Name="OptionsBorder" Padding="8,4">
+                                    <StackPanel>
+                                        <CheckBox x:Name="ChkNoTeamsPost" Content="TeamsPostなし" FontSize="11" Margin="0,2"/>
+                                        <CheckBox x:Name="ChkEstimatedInput" Content="想定入力" FontSize="11" Margin="0,2"/>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- 出勤・退勤ボタン -->
+                        <Grid Margin="0,5,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="10"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <Border x:Name="ClockInBorder" Grid.Column="0">
+                                <Button x:Name="BtnClockIn" Content="出 勤" FontSize="12" FontWeight="Bold" Background="Transparent" Foreground="White" BorderThickness="0" Cursor="Hand" Height="44"/>
+                            </Border>
+
+                            <Border x:Name="ClockOutBorder" Grid.Column="2">
+                                <Button x:Name="BtnClockOut" Content="退 勤" FontSize="12" FontWeight="Bold" Background="Transparent" Foreground="White" BorderThickness="0" Cursor="Hand" Height="44"/>
+                            </Border>
+                        </Grid>
+
+                        <!-- 日付リスト -->
+                        <TextBox x:Name="TxtDateList" FontSize="10" IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" Height="40" Margin="0,0,0,10"/>
+
+                        <!-- 追加・クリア・一括記入ボタン -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="7"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="7"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <Border x:Name="AddDateBorder" Grid.Column="0">
+                                <Button x:Name="BtnAddDate" Content="追加" FontSize="10" FontWeight="Bold" Background="Transparent" Foreground="White" BorderThickness="0" Cursor="Hand" Height="34"/>
+                            </Border>
+
+                            <Border x:Name="ClearDatesBorder" Grid.Column="2">
+                                <Button x:Name="BtnClearDates" Content="クリア" FontSize="10" FontWeight="Bold" Background="Transparent" Foreground="White" BorderThickness="0" Cursor="Hand" Height="34"/>
+                            </Border>
+
+                            <Border x:Name="BulkInputBorder" Grid.Column="4">
+                                <Button x:Name="BtnBulkInput" Content="一括記入" FontSize="10" FontWeight="Bold" Background="Transparent" Foreground="White" BorderThickness="0" Cursor="Hand" Height="34"/>
+                            </Border>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </TabItem>
+
+        <!-- 設定タブ -->
+        <TabItem Header="設定">
+            <ScrollViewer x:Name="SettingsScrollViewer" VerticalScrollBarVisibility="Auto">
+                <StackPanel Margin="20">
+                    <!-- テーマ設定セクション -->
+                    <TextBlock x:Name="LblAppearance" Text="外観" FontSize="14" FontWeight="Bold" Margin="0,0,0,10"/>
+                    <Border x:Name="ThemeSectionBorder" Padding="15" Margin="0,0,0,20" BorderThickness="1">
+                        <Grid Margin="0,5">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="200"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock x:Name="LblTheme" Grid.Column="0" Text="テーマ:" VerticalAlignment="Center" FontSize="11"/>
+                            <ComboBox x:Name="cmbTheme" Grid.Column="1" FontSize="11" Height="26"/>
+                        </Grid>
+                    </Border>
+
+                    <!-- ユーザ情報セクション -->
+                    <TextBlock x:Name="LblUserInfo" Text="ユーザ情報" FontSize="14" FontWeight="Bold" Margin="0,0,0,10"/>
+                    <Border x:Name="UserInfoBorder" Padding="15" Margin="0,0,0,20" BorderThickness="1">
+                        <StackPanel>
+                            <Grid Margin="0,5">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="200"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="AD UserName:" VerticalAlignment="Center" FontSize="11" />
+
+                                <TextBox x:Name="txtAdUsername" Grid.Column="1" FontSize="11" Height="26" Padding="5,3"/>
+                            </Grid>
+                            <Grid Margin="0,5">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="200"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="フルネーム:" VerticalAlignment="Center" FontSize="11" />
+
+                                <TextBox x:Name="txtFullName" Grid.Column="1" FontSize="11" Height="26" Padding="5,3"/>
+                            </Grid>
+                            <Grid Margin="0,5">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="200"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="TeamsPrincipalID:" VerticalAlignment="Center" FontSize="11" />
+
+                                <TextBox x:Name="txtTeamsPrincipalId" Grid.Column="1" FontSize="11" Height="26" Padding="5,3"/>
+                            </Grid>
+                            <Grid Margin="0,5">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="200"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="シフト表上の名前表記:" VerticalAlignment="Center" FontSize="11" />
+
+                                <TextBox x:Name="txtShiftDisplayName" Grid.Column="1" FontSize="11" Height="26" Padding="5,3"/>
+                            </Grid>
+                            <Grid Margin="0,5">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="200"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="タイムシートの名前表記:" VerticalAlignment="Center" FontSize="11" />
+
+                                <TextBox x:Name="txtTimesheetDisplayName" Grid.Column="1" FontSize="11" Height="26" Padding="5,3"/>
+                            </Grid>
+                            <Grid Margin="0,5">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="200"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="タイムシートフォルダ:" VerticalAlignment="Center" FontSize="11" />
+
+                                <TextBox x:Name="txtTimesheetFolder" Grid.Column="1" FontSize="11" Height="26" Padding="5,3"/>
+                            </Grid>
+                            <Grid Margin="0,5">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="200"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="出勤データ出力フォルダ:" VerticalAlignment="Center" FontSize="11" />
+
+                                <TextBox x:Name="txtAttendanceDataFolder" Grid.Column="1" FontSize="11" Height="26" Padding="5,3"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Teams Work Flow情報セクション -->
+                    <TextBlock x:Name="LblTeamsWorkflow" Text="Teams Work Flow情報" FontSize="14" FontWeight="Bold" Margin="0,0,0,10"/>
+                    <Border x:Name="TeamsWorkflowBorder" Padding="15" Margin="0,0,0,20" BorderThickness="1">
+                        <Grid Margin="0,5">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="200"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="WebhookURL:" VerticalAlignment="Center" FontSize="11" />
+
+                            <PasswordBox x:Name="txtWebhookUrl" Grid.Column="1" FontSize="11" Height="26" Padding="5,3"/>
+                        </Grid>
+                    </Border>
+
+                    <!-- 部内管理職セクション -->
+                    <TextBlock x:Name="LblManagers" Text="部内管理職" FontSize="14" FontWeight="Bold" Margin="0,0,0,10"/>
+                    <Border x:Name="ManagersBorder" Padding="15" Margin="0,0,0,20" BorderThickness="1">
+                        <StackPanel>
+                            <ListView x:Name="lvManagers" Height="150" Margin="0,0,0,10" BorderThickness="1">
+                                <ListView.View>
+                                    <GridView>
+                                        <GridViewColumn Header="名前" Width="200" DisplayMemberBinding="{Binding Name}"/>
+                                        <GridViewColumn Header="TeamsPrincipalID" Width="300" DisplayMemberBinding="{Binding TeamsPrincipalId}"/>
+                                    </GridView>
+                                </ListView.View>
+                            </ListView>
+
+                            <Grid Margin="0,5">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="200"/>
+                                    <ColumnDefinition Width="10"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="10"/>
+                                    <ColumnDefinition Width="80"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox x:Name="txtNewManagerName" Grid.Column="0" FontSize="11" Height="26" Padding="5,3" Margin="0,0,0,0"/>
+                                <TextBox x:Name="txtNewManagerId" Grid.Column="2" FontSize="11" Height="26" Padding="5,3"/>
+                                <Border x:Name="AddManagerBorder" Grid.Column="4">
+                                    <Button x:Name="btnAddManager" Content="追加" FontSize="10" FontWeight="Bold" Background="Transparent" Foreground="White" BorderThickness="0" Cursor="Hand" Height="26"/>
+                                </Border>
+                            </Grid>
+
+                            <Border x:Name="DeleteManagerBorder" Margin="0,10,0,0" HorizontalAlignment="Right">
+                                <Button x:Name="btnDeleteManager" Content="選択を削除" FontSize="10" FontWeight="Bold" Background="Transparent" Foreground="White" BorderThickness="0" Cursor="Hand" Height="26" Padding="15,0"/>
+                            </Border>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- 保存ボタン -->
+                    <Border x:Name="SaveSettingsBorder" HorizontalAlignment="Center" Margin="0,10,0,20">
+                        <Button x:Name="btnSaveSettings" Content="設定を保存" FontSize="12" FontWeight="Bold" Background="Transparent" Foreground="White" BorderThickness="0" Cursor="Hand" Height="40" Padding="30,0"/>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+        </TabItem>
+    </TabControl>
+</Window>
