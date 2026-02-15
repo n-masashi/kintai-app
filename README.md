@@ -40,17 +40,22 @@ Excelベースのタイムシートへの打刻作業を自動化し、Teams通�
 kintai-app/
 ├── AttendanceApp.ps1           # メインスクリプト
 ├── MainWindow.xaml             # UI定義
-├── settings.json               # 設定ファイル（要編集）
-└── modules/                    # 機能モジュール
-    ├── CalendarLogic.ps1       # カレンダー表示
-    ├── TimesheetLogic.ps1      # タイムシート操作
-    ├── SettingsLogic.ps1       # 設定管理
-    └── ThemeEngine.ps1         # テーマ切替
+├── settings.json               # 設定ファイル
+├── modules/                    # 機能モジュール
+│   ├── CalendarLogic.ps1
+│   ├── Config.ps1
+│   ├── ControlLogic.ps1
+│   ├── SettingsLogic.ps1
+│   ├── ThemeColors.ps1
+│   ├── ThemeEngine.ps1
+│   └── TimesheetLogic.ps1
+├── attendance_folder/          # 勤怠データ出力先（出勤自動チェックにつかってる）
+└── timesheet/                  # タイムシートExcel格納先
 ```
 
 ## 注意事項
 
-このアプリケーションは特定の社内ルールに基づいて開発されたため、そのままでは他の環境で動作しない可能性があります。コードはカスタマイズの参考としてご利用ください。
+このアプリケーションは特定の社内ルールに合わせて作成されたため、そのままでは他の環境で動作しない可能性があります。コードはカスタマイズの参考としてご利用ください。
 
 ## ライセンス
 
