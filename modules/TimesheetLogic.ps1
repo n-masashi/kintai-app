@@ -1329,21 +1329,25 @@ function Send-TeamsPost {
             spacing = "None"
         }
     } else {
-        $messageObj = @(
-            @{
-                type    = "TextBlock"
-                text    = "退勤します。次回は${NextDateText} ${NextWorkMode}(${NextShift})です。"
-                size    = "Medium"
-                wrap    = $true
-                spacing = "None"
-            },
-            @{
-                type    = "TextBlock"
-                text    = "お疲れさまでした。"
-                wrap    = $true
-                spacing = "None"
-            }
-        )
+        $messageObj = @{
+            type  = "Container"
+            spacing = "None"
+            items = @(
+                @{
+                    type    = "TextBlock"
+                    text    = "退勤します。次回は${NextDateText} ${NextWorkMode}(${NextShift})です。"
+                    size    = "Medium"
+                    wrap    = $true
+                    spacing = "None"
+                },
+                @{
+                    type    = "TextBlock"
+                    text    = "お疲れさまでした。"
+                     wrap    = $true
+                     spacing = "None"
+                }
+            )
+        }    
     }
 
     # comment_obj
