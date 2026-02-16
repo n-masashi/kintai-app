@@ -1241,7 +1241,7 @@ function Invoke-RestMethodWithAutoProxy {
     $proxyUri = $systemProxy.GetProxy($Uri)
     
     # プロキシが必要かチェック（正しい比較方法）
-    $needsProxy = ($proxyUri.AbsoluteUri -ne $Uri)
+    $needsProxy = ($proxyUri.AbsoluteUri.TrimEnd('/') -ne $Uri.TrimEnd('/'))
     
     # 基本パラメータ
     $params = @{
@@ -1371,7 +1371,8 @@ function Send-TeamsPost {
     }
 
     # payload 組み立て
-    $mentionArr = if ($MentionData -and $MentionData.Count -gt 0) { $MentionData } else { @() }
+    $mentionArr = @($MentionData | Where-Object { $_ })
+
     $payload = @{
         mention_data = $mentionArr
         userId       = $userId
@@ -1397,7 +1398,7 @@ function Send-TeamsPost {
         Write-Host "送信成功"
     } catch {
         Write-Host "送信失敗: $($_.Exception.Message)"
-        exit 1
+        throw
     }
 
 }
