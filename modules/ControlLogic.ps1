@@ -143,6 +143,11 @@ function Initialize-ControlPanel {
         Update-BulkInputState
     })
 
+    # 関数参照を変数に保存（クロージャーで使用するため）
+    $writeClockInFunc = ${function:Write-ClockIn}
+    $writeClockOutFunc = ${function:Write-ClockOut}
+    $writeBulkInputFunc = ${function:Write-BulkInput}
+
     # Timesheetボタン
     $btnTimesheet.Add_Click({
         [System.Windows.MessageBox]::Show("Timesheet機能は未実装です。", "情報", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
@@ -150,12 +155,12 @@ function Initialize-ControlPanel {
 
     # 出勤ボタン
     $btnClockIn.Add_Click({
-        Write-ClockIn -Window $window
+        & $writeClockInFunc -Window $window
     }.GetNewClosure())
 
     # 退勤ボタン
     $btnClockOut.Add_Click({
-        Write-ClockOut -Window $window
+        & $writeClockOutFunc -Window $window
     }.GetNewClosure())
 
     # 追加ボタン
@@ -171,35 +176,38 @@ function Initialize-ControlPanel {
 
     # 一括記入ボタン
     $btnBulkInput.Add_Click({
-        Write-BulkInput -Window $window
+        & $writeBulkInputFunc -Window $window
     }.GetNewClosure())
 
     # ボタン+Border ホバーアニメーション設定（translateY + シャドウ変更）
     $script:ApplyButtonHoverAnimation = {
         param($button, $borderElement, [string]$shadowKey, [string]$hoverShadowKey)
-
+    
+        # New-ShadowEffect関数への参照を変数に保存
+        $newShadowFunc = ${function:New-ShadowEffect}
+    
         # TranslateTransformの準備（ボタン自体に適用）
         $button.RenderTransformOrigin = New-Object System.Windows.Point(0.5, 0.5)
         $translateTransform = New-Object System.Windows.Media.TranslateTransform(0, 0)
         $button.RenderTransform = $translateTransform
-
+    
         # MouseEnter
         $button.Add_MouseEnter({
             param($sender, $e)
-
+    
             $currentTheme = if ($script:settings.theme) { $script:settings.theme } else { "light" }
             $theme = $global:ThemeColors[$currentTheme]
-
+    
             # Y軸移動アニメーション
             $moveAnim = New-Object System.Windows.Media.Animation.DoubleAnimation
             $moveAnim.To = -2
             $moveAnim.Duration = [System.Windows.Duration]::new([System.TimeSpan]::FromMilliseconds(300))
             $moveAnim.EasingFunction = New-Object System.Windows.Media.Animation.CubicEase
             $sender.RenderTransform.BeginAnimation([System.Windows.Media.TranslateTransform]::YProperty, $moveAnim)
-
+    
             # シャドウ変更（Borderがある場合）
             if ($borderElement -and $hoverShadowKey -and $theme[$hoverShadowKey]) {
-                $borderElement.Effect = New-ShadowEffect $theme[$hoverShadowKey]
+                $borderElement.Effect = & $newShadowFunc $theme[$hoverShadowKey]
             }
         }.GetNewClosure())
 
@@ -219,7 +227,7 @@ function Initialize-ControlPanel {
 
             # シャドウを元に戻す
             if ($borderElement -and $shadowKey -and $theme[$shadowKey]) {
-                $borderElement.Effect = New-ShadowEffect $theme[$shadowKey]
+                $borderElement.Effect = & $newShadowFunc $theme[$shadowKey]
             }
         }.GetNewClosure())
     }

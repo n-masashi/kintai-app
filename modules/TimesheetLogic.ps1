@@ -1207,6 +1207,83 @@ function Show-ClockOutDialog {
 # ==============================
 # Teams Webhook 投稿
 # ==============================
+function Get-ProxyCredential {
+    param([string]$Path)
+    
+    if (Test-Path $Path) {
+        try {
+            return Import-Clixml -Path $Path
+        } catch {
+            Write-Host "保存された認証情報の読み込みに失敗しました"
+            Remove-Item $Path -ErrorAction SilentlyContinue
+        }
+    }
+    
+    # 新規入力
+    $cred = Get-Credential -Message "プロキシ認証情報を入力してください"
+    if ($null -eq $cred) {
+        throw "認証情報の入力がキャンセルされました"
+    }
+    $cred | Export-Clixml -Path $Path
+    return $cred
+}
+
+function Invoke-RestMethodWithAutoProxy {
+    param(
+        [string]$Uri,
+        [string]$Method,
+        [byte[]]$Body,
+        [string]$ContentType
+    )
+    
+    # プロキシ検出
+    $systemProxy = [System.Net.WebRequest]::GetSystemWebProxy()
+    $proxyUri = $systemProxy.GetProxy($Uri)
+    
+    # プロキシが必要かチェック（正しい比較方法）
+    $needsProxy = ($proxyUri.AbsoluteUri -ne $Uri)
+    
+    # 基本パラメータ
+    $params = @{
+        Uri = $Uri
+        Method = $Method
+        Body = $Body
+        ContentType = $ContentType
+    }
+    
+    # プロキシが必要な場合のみ認証情報を取得して追加
+    if ($needsProxy) {
+        Write-Host "プロキシ経由で接続します: $($proxyUri.AbsoluteUri)"
+        $params['Proxy'] = $proxyUri.AbsoluteUri  # 文字列として渡す
+        $params['ProxyCredential'] = Get-ProxyCredential -Path $credPath
+    } else {
+        Write-Host "プロキシなしで直接接続します"
+    }
+    
+    # 実行
+    try {
+        Invoke-RestMethod @params
+    } catch {
+        # 407エラーかつプロキシ使用時のみリトライ
+        if ($needsProxy -and $_.Exception.Response.StatusCode -eq 407) {
+            Write-Host "プロキシ認証に失敗しました。認証情報を再入力してください。"
+            Remove-Item $credPath -ErrorAction SilentlyContinue
+            
+            $params['ProxyCredential'] = Get-ProxyCredential -Path $credPath
+            
+            # リトライ
+            try {
+                Invoke-RestMethod @params
+            } catch {
+                Write-Host "リトライも失敗しました: $($_.Exception.Message)"
+                throw
+            }
+        } else {
+            throw
+        }
+    }
+}
+
 function Send-TeamsPost {
     param(
         [string]$CheckType,
@@ -1300,10 +1377,25 @@ function Send-TeamsPost {
     }
 
     $body = ConvertTo-Json -InputObject $payload -Depth 10
-
     # デバッグ用: Postデータをファイル出力
-    # $debugPath = Join-Path $script:settings.timesheet_folder "teams_post_debug.json"
-    # $body | Out-File -FilePath $debugPath -Encoding utf8 -Force
+    #$debugPath = Join-Path $script:settings.timesheet_folder "teams_post_debug.json"
+    #$body | Out-File -FilePath $debugPath -Encoding utf8 -Force
 
-    Invoke-RestMethod -Uri $webhookUrl -Method Post -Body ([System.Text.Encoding]::UTF8.GetBytes($body)) -ContentType "application/json; charset=utf-8"
+    #Invoke-RestMethod -Uri $webhookUrl -Method Post -Body ([System.Text.Encoding]::UTF8.GetBytes($body)) -ContentType "application/json; charset=utf-8"
+    $credPath = "$env:USERPROFILE\.proxy_cred.xml"
+    try {
+        Invoke-RestMethodWithAutoProxy `
+            -Uri $webhookUrl `
+            -Method Post `
+            -Body ([System.Text.Encoding]::UTF8.GetBytes($body)) `
+            -ContentType "application/json; charset=utf-8"
+
+        Write-Host "送信成功"
+    } catch {
+        Write-Host "送信失敗: $($_.Exception.Message)"
+        exit 1
+    }
+
 }
+
+
