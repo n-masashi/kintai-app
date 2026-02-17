@@ -1370,6 +1370,15 @@ function Send-TeamsPost {
         }
     }
 
+    # 今のTeams WorkFlowのアダプティブカード設定に合わせてmessageObjの形式を変える（条件付き）
+    if (
+        $CheckType -eq "退勤" -and
+        $commentObj.Count -gt 0 -and
+        (-not $MentionData -or $MentionData.Count -eq 0)
+    ) {
+        $messageObj.items += $commentObj
+    }
+
     # payload 組み立て
     $mentionArr = @($MentionData | Where-Object { $_ })
 
