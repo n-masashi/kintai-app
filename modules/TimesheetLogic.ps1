@@ -194,6 +194,12 @@ function Show-LateReasonDialog {
 function Write-ClockIn {
     param($Window)
 
+    # --- ローディング開始 ---
+    $btnClockIn = $Window.FindName("BtnClockIn")
+    $btnClockIn.IsEnabled = $false
+    $btnClockIn.Content = "処理中..."
+    $Window.Dispatcher.Invoke([System.Windows.Threading.DispatcherPriority]::Render, [action]{})    
+
     # UI値取得
     $cmbShiftType = $Window.FindName("CmbShiftType")
     $chkEstimatedInput = $Window.FindName("ChkEstimatedInput")
@@ -305,7 +311,6 @@ function Write-ClockIn {
             return
         }
 
-        # NumberFormat: 深夜は24h超えのため [h]:mm、それ以外は h:mm
         $timeFmt = if ($shiftType -eq "深夜") { "[h]:mm" } else { "h:mm" }
 
         if ($isEstimated) {
@@ -314,11 +319,9 @@ function Write-ClockIn {
             $cellE.Value2 = [string]$shiftType
 
             $cellF = $worksheet.Cells.Item($row, 6)
-            $cellF.NumberFormat = $timeFmt
             $cellF.Value2 = [double](ConvertTo-ExcelSerial -Hours $startTime.Hours -Minutes $startTime.Minutes)
 
             $cellG = $worksheet.Cells.Item($row, 7)
-            $cellG.NumberFormat = $timeFmt
             $cellG.Value2 = [double](ConvertTo-ExcelSerial -Hours $endTime.Hours -Minutes $endTime.Minutes)
         } elseif ($isLate) {
             # 遅刻処理
@@ -326,7 +329,6 @@ function Write-ClockIn {
             $cellE.Value2 = [string]"遅刻"
 
             $cellF = $worksheet.Cells.Item($row, 6)
-            $cellF.NumberFormat = $timeFmt
             $cellF.Value2 = [double](ConvertTo-ExcelSerial -Hours $rounded.Hours -Minutes $rounded.Minutes)
 
             $cellL = $worksheet.Cells.Item($row, 12)
@@ -337,7 +339,6 @@ function Write-ClockIn {
             $cellE.Value2 = [string]$shiftType
 
             $cellF = $worksheet.Cells.Item($row, 6)
-            $cellF.NumberFormat = $timeFmt
             $cellF.Value2 = [double](ConvertTo-ExcelSerial -Hours $startTime.Hours -Minutes $startTime.Minutes)
         }
 
@@ -392,6 +393,9 @@ function Write-ClockIn {
         if ($workbook) {
             try { $workbook.Close($false) } catch {}
             [System.Runtime.InteropServices.Marshal]::ReleaseComObject($workbook) | Out-Null
+            # --- ローディング終了 ---
+            $btnClockIn.IsEnabled = $true
+            $btnClockIn.Content = "出 勤"            
         }
         if ($excel) {
             try { $excel.Quit() } catch {}
@@ -406,6 +410,12 @@ function Write-ClockIn {
 function Write-ClockOut {
     param($Window)
 
+    # --- ローディング開始 ---
+    $btnClockOut = $Window.FindName("BtnClockOut")
+    $btnClockOut.IsEnabled = $false
+    $btnClockOut.Content = "処理中..."
+    $Window.Dispatcher.Invoke([System.Windows.Threading.DispatcherPriority]::Render, [action]{})
+
     # UI値取得
     $cmbShiftType = $Window.FindName("CmbShiftType")
     $shiftType = $cmbShiftType.SelectedItem
@@ -413,7 +423,12 @@ function Write-ClockOut {
 
     # 退勤情報ダイアログ表示（Excel COM前に表示）
     $clockOutInfo = Show-ClockOutDialog -OwnerWindow $Window -IsNightShift $isNightShift
-    if ($null -eq $clockOutInfo) { return }
+    if ($null -eq $clockOutInfo) {
+        # キャンセル時もボタンを戻す
+        $btnClockOut.IsEnabled = $true
+        $btnClockOut.Content = "退 勤"
+        return
+        }
 
     # 日付取得（常にリアルタイム）
     $now = Get-Date
@@ -499,7 +514,6 @@ function Write-ClockOut {
 
         # G列に終業時刻を記載
         $cellG = $worksheet.Cells.Item($row, 7)
-        $cellG.NumberFormat = $timeFmt
         $cellG.Value2 = $endSerial
 
         # 実働時間計算 (G列 - F列)
@@ -549,6 +563,9 @@ function Write-ClockOut {
         if ($workbook) {
             try { $workbook.Close($false) } catch {}
             [System.Runtime.InteropServices.Marshal]::ReleaseComObject($workbook) | Out-Null
+            # --- ローディング終了 ---
+            $btnClockOut.IsEnabled = $true
+            $btnClockOut.Content = "退 勤"            
         }
         if ($excel) {
             try { $excel.Quit() } catch {}
@@ -605,14 +622,12 @@ function Write-VacationClockIn {
         # F列: 始業時刻
         if ($null -ne $config.StartTime) {
             $cellF = $worksheet.Cells.Item($row, 6)
-            $cellF.NumberFormat = "h:mm"
             $cellF.Value2 = [double](ConvertTo-ExcelSerial -Hours $config.StartTime.Hours -Minutes $config.StartTime.Minutes)
         }
 
         # G列: 終業時刻
         if ($null -ne $config.EndTime) {
             $cellG = $worksheet.Cells.Item($row, 7)
-            $cellG.NumberFormat = "h:mm"
             $cellG.Value2 = [double](ConvertTo-ExcelSerial -Hours $config.EndTime.Hours -Minutes $config.EndTime.Minutes)
         }
 
@@ -922,11 +937,9 @@ function Write-BulkInput {
                     $cellE.Value2 = [string]$shiftType
 
                     $cellF = $worksheet.Cells.Item($row, 6)
-                    $cellF.NumberFormat = $timeFmt
                     $cellF.Value2 = [double](ConvertTo-ExcelSerial -Hours $startTime.Hours -Minutes $startTime.Minutes)
 
                     $cellG = $worksheet.Cells.Item($row, 7)
-                    $cellG.NumberFormat = $timeFmt
                     $cellG.Value2 = [double](ConvertTo-ExcelSerial -Hours $endTime.Hours -Minutes $endTime.Minutes)
                 }
                 elseif ($shiftType -eq "シフト休") {
@@ -1022,12 +1035,10 @@ function Write-HalfDayLeaveClockIn {
 
         # F列: 始業時刻
         $cellF = $worksheet.Cells.Item($row, 6)
-        $cellF.NumberFormat = "h:mm"
         $cellF.Value2 = [double](ConvertTo-ExcelSerial -Hours $input.StartTime.Hours -Minutes $input.StartTime.Minutes)
 
         # G列: 終業時刻
         $cellG = $worksheet.Cells.Item($row, 7)
-        $cellG.NumberFormat = "h:mm"
         $cellG.Value2 = [double](ConvertTo-ExcelSerial -Hours $input.EndTime.Hours -Minutes $input.EndTime.Minutes)
 
         # L列: 備考
@@ -1370,7 +1381,7 @@ function Send-TeamsPost {
         }
     }
 
-    # 今のTeams WorkFlowのアダプティブカード設定に合わせてmessageObjの形式を変える（条件付き）
+    # 今のTeamsWorkFlowのアダプティブカード設定に合わせてmessageObjの形式を変える（条件付き）
     if (
         $CheckType -eq "退勤" -and
         $commentObj.Count -gt 0 -and
