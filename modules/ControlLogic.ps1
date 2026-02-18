@@ -106,11 +106,14 @@ function Initialize-ControlPanel {
     foreach ($shiftType in $script:shiftTypes) {
         [void]$cmbShiftType.Items.Add($shiftType)
     }
-    $cmbShiftType.SelectedIndex = 0
+    $cmbShiftType.SelectedIndex = -1
 
     # 一括記入ボタンのデフォルトグレーアウト
     $btnBulkInput.IsEnabled = $false
     $bulkInputBorder.Opacity = 0.4
+
+    # 関数参照を変数に保存（イベントハンドラーのスコープ問題回避）
+    $updateBulkStateFunc = ${function:Update-BulkInputState}
 
     # ComboBox選択変更時: 休暇グループならUI制御 + 一括記入状態更新
     $vacationGroup = $script:VacationGroup
@@ -127,21 +130,21 @@ function Initialize-ControlPanel {
         $radioOffice.IsEnabled = (-not $isVacation)
 
         # 一括記入 + 出勤/退勤ボタン状態更新
-        Update-BulkInputState
+        & $updateBulkStateFunc
     }.GetNewClosure())
 
     # 想定記入チェックボックス変更時
     $chkEstimatedInput.Add_Checked({
-        Update-BulkInputState
-    })
+        & $updateBulkStateFunc
+    }.GetNewClosure())
     $chkEstimatedInput.Add_Unchecked({
-        Update-BulkInputState
-    })
+        & $updateBulkStateFunc
+    }.GetNewClosure())
 
     # 日付リストTextBox変更時: 追加/クリアどちらでも発火
     $script:txtDateList.Add_TextChanged({
-        Update-BulkInputState
-    })
+        & $updateBulkStateFunc
+    }.GetNewClosure())
 
     # 関数参照を変数に保存（クロージャーで使用するため）
     $writeClockInFunc = ${function:Write-ClockIn}

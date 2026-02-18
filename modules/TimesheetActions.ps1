@@ -12,104 +12,110 @@ function Write-ClockIn {
     $btnClockIn.Content = "処理中..."
     $Window.Dispatcher.Invoke([System.Windows.Threading.DispatcherPriority]::Render, [action]{})
 
-    # UI値取得
-    $cmbShiftType = $Window.FindName("CmbShiftType")
-    $chkEstimatedInput = $Window.FindName("ChkEstimatedInput")
-    $shiftType = $cmbShiftType.SelectedItem
-
-    # 0.5日有給（時間+備考ユーザー入力型）
-    if ($shiftType -eq "0.5日有給") {
-        Write-HalfDayLeaveClockIn -Window $Window
-        return
-    }
-
-    # 休暇グループ（ユーザー入力型）の場合は専用処理
-    if ($shiftType -in $script:VacationInputGroup) {
-        Write-VacationInputClockIn -Window $Window -ShiftType $shiftType
-        return
-    }
-
-    # 休暇グループ（固定記載）の場合は専用処理
-    if ($shiftType -in $script:VacationGroup) {
-        Write-VacationClockIn -Window $Window -ShiftType $shiftType
-        return
-    }
-
-    # リアルタイム勤務グループか判定
-    if ($shiftType -notin $script:RealtimeShiftGroups) {
-        [System.Windows.MessageBox]::Show("「${shiftType}」の出勤処理は未実装です。", "情報", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::None)
-        return
-    }
-
-    $isEstimated = $chkEstimatedInput.IsChecked
-
-    # 日付取得
-    if ($isEstimated) {
-        $targetYear = $script:dispYear
-        $targetMonth = $script:dispMonth
-        $targetDay = $script:selectedDay
-    } else {
-        $now = Get-Date
-        $targetYear = $now.Year
-        $targetMonth = $now.Month
-        $targetDay = $now.Day
-    }
-
-    # 固定始業・終業時刻を取得
-    $startTime = $script:StartTimeMap[$shiftType]
-    $endTime = $script:EndTimeMap[$shiftType]
-
-    # 遅刻判定＆理由入力（Excel COMを開く前に実施）
-    $isLate = $false
-    $lateReason = $null
-    $rounded = $null
-    if (-not $isEstimated) {
-        $now = Get-Date
-        $isLateDetected = $false
-
-        if ($shiftType -eq "深夜") {
-            # 深夜: 日付またぎがあるためdatetime比較
-            $targetStart = Get-Date -Year $now.Year -Month $now.Month -Day $now.Day -Hour $startTime.Hours -Minute $startTime.Minutes -Second 0
-            # 現在時刻が午前（日付をまたいだ後）なら基準は前日の22:30
-            if ($now.Hour -lt 12) {
-                $targetStart = $targetStart.AddDays(-1)
-            }
-            $isLateDetected = ($now -gt $targetStart.AddMinutes(10))
-        } else {
-            $fixedStartMinutes = $startTime.Hours * 60 + $startTime.Minutes
-            $currentMinutes = $now.Hour * 60 + $now.Minute
-            $isLateDetected = ($currentMinutes -gt ($fixedStartMinutes + 10))
-        }
-
-        if ($isLateDetected) {
-            $isLate = $true
-            $lateReason = Show-LateReasonDialog -OwnerWindow $Window
-            if ($null -eq $lateReason) {
-                return
-            }
-            if ($shiftType -eq "深夜") {
-                $rounded = Get-NightShiftRoundedQuarter -DateTime $now
-            } else {
-                $rounded = Get-RoundedQuarter -DateTime $now
-            }
-        }
-    }
-
-    # タイムシートパス取得
-    $tsPath = Get-TimesheetPath -Year $targetYear -Month $targetMonth
-    if ($null -eq $tsPath) {
-        [System.Windows.MessageBox]::Show("タイムシートフォルダが設定されていません。`n設定タブでフォルダパスを設定してください。", "エラー", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Error)
-        return
-    }
-    if (-not (Test-Path $tsPath)) {
-        [System.Windows.MessageBox]::Show("タイムシートが見つかりません。`n$tsPath", "エラー", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Error)
-        return
-    }
-
-    # Excel COM操作
     $excel = $null
     $workbook = $null
     try {
+        # UI値取得
+        $cmbShiftType = $Window.FindName("CmbShiftType")
+        $chkEstimatedInput = $Window.FindName("ChkEstimatedInput")
+        $shiftType = $cmbShiftType.SelectedItem
+
+        # 業務形態未選択チェック
+        if ($null -eq $shiftType) {
+            [System.Windows.MessageBox]::Show("業務形態を選択してください。", "警告", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
+            return
+        }
+
+        # 0.5日有給（時間+備考ユーザー入力型）
+        if ($shiftType -eq "0.5日有給") {
+            Write-HalfDayLeaveClockIn -Window $Window
+            return
+        }
+
+        # 休暇グループ（ユーザー入力型）の場合は専用処理
+        if ($shiftType -in $script:VacationInputGroup) {
+            Write-VacationInputClockIn -Window $Window -ShiftType $shiftType
+            return
+        }
+
+        # 休暇グループ（固定記載）の場合は専用処理
+        if ($shiftType -in $script:VacationGroup) {
+            Write-VacationClockIn -Window $Window -ShiftType $shiftType
+            return
+        }
+
+        # リアルタイム勤務グループか判定
+        if ($shiftType -notin $script:RealtimeShiftGroups) {
+            [System.Windows.MessageBox]::Show("「${shiftType}」の出勤処理は未実装です。", "情報", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::None)
+            return
+        }
+
+        $isEstimated = $chkEstimatedInput.IsChecked
+
+        # 日付取得
+        if ($isEstimated) {
+            $targetYear = $script:dispYear
+            $targetMonth = $script:dispMonth
+            $targetDay = $script:selectedDay
+        } else {
+            $now = Get-Date
+            $targetYear = $now.Year
+            $targetMonth = $now.Month
+            $targetDay = $now.Day
+        }
+
+        # 固定始業・終業時刻を取得
+        $startTime = $script:StartTimeMap[$shiftType]
+        $endTime = $script:EndTimeMap[$shiftType]
+
+        # 遅刻判定＆理由入力（Excel COMを開く前に実施）
+        $isLate = $false
+        $lateReason = $null
+        $rounded = $null
+        if (-not $isEstimated) {
+            $now = Get-Date
+            $isLateDetected = $false
+
+            if ($shiftType -eq "深夜") {
+                # 深夜: 日付またぎがあるためdatetime比較
+                $targetStart = Get-Date -Year $now.Year -Month $now.Month -Day $now.Day -Hour $startTime.Hours -Minute $startTime.Minutes -Second 0
+                # 現在時刻が午前（日付をまたいだ後）なら基準は前日の22:30
+                if ($now.Hour -lt 12) {
+                    $targetStart = $targetStart.AddDays(-1)
+                }
+                $isLateDetected = ($now -gt $targetStart.AddMinutes(10))
+            } else {
+                $fixedStartMinutes = $startTime.Hours * 60 + $startTime.Minutes
+                $currentMinutes = $now.Hour * 60 + $now.Minute
+                $isLateDetected = ($currentMinutes -gt ($fixedStartMinutes + 10))
+            }
+
+            if ($isLateDetected) {
+                $isLate = $true
+                $lateReason = Show-LateReasonDialog -OwnerWindow $Window
+                if ($null -eq $lateReason) {
+                    return
+                }
+                if ($shiftType -eq "深夜") {
+                    $rounded = Get-NightShiftRoundedQuarter -DateTime $now
+                } else {
+                    $rounded = Get-RoundedQuarter -DateTime $now
+                }
+            }
+        }
+
+        # タイムシートパス取得
+        $tsPath = Get-TimesheetPath -Year $targetYear -Month $targetMonth
+        if ($null -eq $tsPath) {
+            [System.Windows.MessageBox]::Show("タイムシートフォルダが設定されていません。`n設定タブでフォルダパスを設定してください。", "エラー", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Error)
+            return
+        }
+        if (-not (Test-Path $tsPath)) {
+            [System.Windows.MessageBox]::Show("タイムシートが見つかりません。`n$tsPath", "エラー", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Error)
+            return
+        }
+
+        # Excel COM操作
         $excel = New-Object -ComObject Excel.Application
         $excel.Visible = $false
         $excel.DisplayAlerts = $false
@@ -156,22 +162,28 @@ function Write-ClockIn {
 
         $workbook.Save()
 
-        # Teams Post判定（出勤時）
+        # Teams Post判定 / CSV出力判定（出勤時）
         $teamsError = $null
         $chkNoTeamsPost = $Window.FindName("ChkNoTeamsPost")
         $today = Get-Date
         $isCalendarToday = ($script:dispYear -eq $today.Year -and $script:dispMonth -eq $today.Month -and $script:selectedDay -eq $today.Day)
-        $shouldPost = ((-not $chkNoTeamsPost.IsChecked) -and (-not $isEstimated) -and ($shiftType -in $script:RealtimeShiftGroups) -and $isCalendarToday)
-        if ($shouldPost) {
+        # TeamsPostチェックに関係なく、リアルタイム勤務かつ今日の場合はCSV出力する
+        $shouldPost      = ((-not $chkNoTeamsPost.IsChecked) -and (-not $isEstimated) -and ($shiftType -in $script:RealtimeShiftGroups) -and $isCalendarToday)
+        $shouldOutputCsv = ((-not $isEstimated) -and ($shiftType -in $script:RealtimeShiftGroups) -and $isCalendarToday)
+
+        if ($shouldPost -or $shouldOutputCsv) {
             $radioRemote = $Window.FindName("RadioRemote")
             $workMode = if ($radioRemote.IsChecked) { "リモート" } else { "出社" }
-            try {
-                Send-TeamsPost -CheckType "出勤" -WorkMode $workMode -MentionData @() -Comment ""
-            } catch {
-                $teamsError = $_
+
+            if ($shouldPost) {
+                try {
+                    Send-TeamsPost -CheckType "出勤" -WorkMode $workMode -MentionData @() -Comment ""
+                } catch {
+                    $teamsError = $_
+                }
             }
 
-            # 出勤データCSV出力
+            # 出勤データCSV出力（TeamsPostなしでも出力する）
             try {
                 $csvFolder = $script:settings.attendance_data_folder
                 if ([string]::IsNullOrWhiteSpace($csvFolder)) {
@@ -205,9 +217,6 @@ function Write-ClockIn {
         if ($workbook) {
             try { $workbook.Close($false) } catch {}
             [System.Runtime.InteropServices.Marshal]::ReleaseComObject($workbook) | Out-Null
-            # --- ローディング終了 ---
-            $btnClockIn.IsEnabled = $true
-            $btnClockIn.Content = "出 勤"
         }
         if ($excel) {
             try { $excel.Quit() } catch {}
@@ -215,6 +224,9 @@ function Write-ClockIn {
         }
         [GC]::Collect()
         [GC]::WaitForPendingFinalizers()
+        # --- ローディング終了（常に実行）---
+        $btnClockIn.IsEnabled = $true
+        $btnClockIn.Content = "出 勤"
     }
 }
 
@@ -228,61 +240,58 @@ function Write-ClockOut {
     $btnClockOut.Content = "処理中..."
     $Window.Dispatcher.Invoke([System.Windows.Threading.DispatcherPriority]::Render, [action]{})
 
-    # UI値取得
-    $cmbShiftType = $Window.FindName("CmbShiftType")
-    $shiftType = $cmbShiftType.SelectedItem
-    $isNightShift = ($shiftType -eq "深夜")
-
-    # 退勤情報ダイアログ表示（Excel COM前に表示）
-    $clockOutInfo = Show-ClockOutDialog -OwnerWindow $Window -IsNightShift $isNightShift
-    if ($null -eq $clockOutInfo) {
-        # キャンセル時もボタンを戻す
-        $btnClockOut.IsEnabled = $true
-        $btnClockOut.Content = "退 勤"
-        return
-        }
-
-    # 日付取得（常にリアルタイム）
-    $now = Get-Date
-    $isCrossDay = ($clockOutInfo.ClockOutType -eq "crossday")
-
-    # ターゲット日付の決定
-    if ($isCrossDay) {
-        if ($isNightShift) {
-            # 深夜＋日跨ぎ: 2日前の行（翌々日退勤 = シフト開始日）
-            $targetDate = $now.AddDays(-2)
-        } else {
-            # 通常シフト＋日跨ぎ: 前日の行
-            $targetDate = $now.AddDays(-1)
-        }
-    } else {
-        if ($isNightShift) {
-            # 深夜＋通常退勤: 前日の行
-            $targetDate = $now.AddDays(-1)
-        } else {
-            # 通常シフト＋通常退勤: 本日の行
-            $targetDate = $now
-        }
-    }
-    $targetYear = $targetDate.Year
-    $targetMonth = $targetDate.Month
-    $targetDay = $targetDate.Day
-
-    # タイムシートパス取得
-    $tsPath = Get-TimesheetPath -Year $targetYear -Month $targetMonth
-    if ($null -eq $tsPath) {
-        [System.Windows.MessageBox]::Show("タイムシートフォルダが設定されていません。`n設定タブでフォルダパスを設定してください。", "エラー", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Error)
-        return
-    }
-    if (-not (Test-Path $tsPath)) {
-        [System.Windows.MessageBox]::Show("タイムシートが見つかりません。`n$tsPath", "エラー", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Error)
-        return
-    }
-
-    # Excel COM操作
     $excel = $null
     $workbook = $null
     try {
+        # UI値取得
+        $cmbShiftType = $Window.FindName("CmbShiftType")
+        $shiftType = $cmbShiftType.SelectedItem
+        $isNightShift = ($shiftType -eq "深夜")
+
+        # 退勤情報ダイアログ表示（Excel COM前に表示）
+        $clockOutInfo = Show-ClockOutDialog -OwnerWindow $Window -IsNightShift $isNightShift
+        if ($null -eq $clockOutInfo) {
+            return
+        }
+
+        # 日付取得（常にリアルタイム）
+        $now = Get-Date
+        $isCrossDay = ($clockOutInfo.ClockOutType -eq "crossday")
+
+        # ターゲット日付の決定
+        if ($isCrossDay) {
+            if ($isNightShift) {
+                # 深夜＋日跨ぎ: 2日前の行（翌々日退勤 = シフト開始日）
+                $targetDate = $now.AddDays(-2)
+            } else {
+                # 通常シフト＋日跨ぎ: 前日の行
+                $targetDate = $now.AddDays(-1)
+            }
+        } else {
+            if ($isNightShift) {
+                # 深夜＋通常退勤: 前日の行
+                $targetDate = $now.AddDays(-1)
+            } else {
+                # 通常シフト＋通常退勤: 本日の行
+                $targetDate = $now
+            }
+        }
+        $targetYear = $targetDate.Year
+        $targetMonth = $targetDate.Month
+        $targetDay = $targetDate.Day
+
+        # タイムシートパス取得
+        $tsPath = Get-TimesheetPath -Year $targetYear -Month $targetMonth
+        if ($null -eq $tsPath) {
+            [System.Windows.MessageBox]::Show("タイムシートフォルダが設定されていません。`n設定タブでフォルダパスを設定してください。", "エラー", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Error)
+            return
+        }
+        if (-not (Test-Path $tsPath)) {
+            [System.Windows.MessageBox]::Show("タイムシートが見つかりません。`n$tsPath", "エラー", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Error)
+            return
+        }
+
+        # Excel COM操作
         $excel = New-Object -ComObject Excel.Application
         $excel.Visible = $false
         $excel.DisplayAlerts = $false
@@ -375,9 +384,6 @@ function Write-ClockOut {
         if ($workbook) {
             try { $workbook.Close($false) } catch {}
             [System.Runtime.InteropServices.Marshal]::ReleaseComObject($workbook) | Out-Null
-            # --- ローディング終了 ---
-            $btnClockOut.IsEnabled = $true
-            $btnClockOut.Content = "退 勤"
         }
         if ($excel) {
             try { $excel.Quit() } catch {}
@@ -385,6 +391,9 @@ function Write-ClockOut {
         }
         [GC]::Collect()
         [GC]::WaitForPendingFinalizers()
+        # --- ローディング終了（常に実行）---
+        $btnClockOut.IsEnabled = $true
+        $btnClockOut.Content = "退 勤"
     }
 }
 
