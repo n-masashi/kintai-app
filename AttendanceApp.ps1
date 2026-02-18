@@ -11,10 +11,14 @@ $script:ProjectRoot = $PSScriptRoot
 # モジュール読み込み
 . "$scriptDir\modules\Config.ps1"
 . "$scriptDir\modules\ThemeColors.ps1"
+. "$scriptDir\modules\ThemeHelpers.ps1"
 . "$scriptDir\modules\ThemeEngine.ps1"
 . "$scriptDir\modules\CalendarLogic.ps1"
 . "$scriptDir\modules\ControlLogic.ps1"
-. "$scriptDir\modules\TimesheetLogic.ps1"
+. "$scriptDir\modules\TimesheetConstants.ps1"
+. "$scriptDir\modules\TimesheetHelpers.ps1"
+. "$scriptDir\modules\TeamsWebhook.ps1"
+. "$scriptDir\modules\TimesheetActions.ps1"
 . "$scriptDir\modules\SettingsLogic.ps1"
 
 # XAML読み込み（外部ファイルから）
