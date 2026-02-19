@@ -180,3 +180,68 @@ function Initialize-SettingsTab {
         [System.Windows.MessageBox]::Show("設定を保存しました。", "保存完了", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
     })
 }
+
+# ==============================
+# 出勤形態タブ
+# ==============================
+
+function Initialize-ShiftTypeTab {
+    param($window)
+
+    $script:lbShiftTypes = $window.FindName("lbShiftTypes")
+    $script:txtNewShiftType = $window.FindName("txtNewShiftType")
+    $btnAddShiftType = $window.FindName("btnAddShiftType")
+    $btnDeleteShiftType = $window.FindName("btnDeleteShiftType")
+    $btnSaveShiftTypes = $window.FindName("btnSaveShiftTypes")
+
+    # 出勤形態リストを読み込み
+    $script:lbShiftTypes.Items.Clear()
+    foreach ($st in $script:shiftTypes) {
+        [void]$script:lbShiftTypes.Items.Add($st)
+    }
+
+    # 追加ボタンのイベント
+    $btnAddShiftType.Add_Click({
+        $newType = $script:txtNewShiftType.Text.Trim()
+        if ([string]::IsNullOrEmpty($newType)) {
+            [System.Windows.MessageBox]::Show("出勤形態名を入力してください。", "入力エラー", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
+            return
+        }
+        if ($script:lbShiftTypes.Items.Contains($newType)) {
+            [System.Windows.MessageBox]::Show("同じ名前の出勤形態がすでに存在します。", "重複エラー", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
+            return
+        }
+        [void]$script:lbShiftTypes.Items.Add($newType)
+        $script:txtNewShiftType.Text = ""
+    })
+
+    # 削除ボタンのイベント
+    $btnDeleteShiftType.Add_Click({
+        $selected = $script:lbShiftTypes.SelectedItem
+        if ($null -eq $selected) {
+            [System.Windows.MessageBox]::Show("削除する出勤形態を選択してください。", "選択エラー", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
+            return
+        }
+        $script:lbShiftTypes.Items.Remove($selected)
+    })
+
+    # 保存ボタンのイベント
+    $btnSaveShiftTypes.Add_Click({
+        $newShiftTypes = @($script:lbShiftTypes.Items | ForEach-Object { $_ })
+        $script:shiftTypes = $newShiftTypes
+        $script:settings.shift_types = $newShiftTypes
+
+        # 打刻タブのコンボボックスを更新
+        $cmbShiftType = $window.FindName("CmbShiftType")
+        if ($cmbShiftType) {
+            $cmbShiftType.Items.Clear()
+            foreach ($st in $newShiftTypes) {
+                [void]$cmbShiftType.Items.Add($st)
+            }
+            $cmbShiftType.SelectedIndex = -1
+        }
+
+        Save-Settings
+        [System.Windows.MessageBox]::Show("出勤形態を保存しました。", "保存完了", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
+    })
+}

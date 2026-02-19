@@ -331,5 +331,36 @@
                 </StackPanel>
             </ScrollViewer>
         </TabItem>
+
+        <!-- 出勤形態タブ -->
+        <TabItem Header="出勤形態">
+            <ScrollViewer x:Name="ShiftTypeScrollViewer" VerticalScrollBarVisibility="Auto">
+                <StackPanel Margin="20">
+                    <TextBlock x:Name="LblShiftTypesNote" TextWrapping="Wrap" FontSize="11" Margin="0,0,0,15">⚠ 注意：追加した出勤形態の処理ロジックは modules/TimesheetActions.ps1 (Write-ClockIn 関数等) を直接編集して実装してください。<LineBreak/>　　　　 実装のない形態で出勤ボタンを押すと「未実装」ダイアログが表示されます。</TextBlock>
+                    <Border x:Name="ShiftTypesBorder" Padding="15" Margin="0,0,0,20" BorderThickness="1">
+                        <StackPanel>
+                            <ListBox x:Name="lbShiftTypes" Height="200" Margin="0,0,0,10" BorderThickness="1"/>
+                            <Grid Margin="0,5">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="10"/>
+                                    <ColumnDefinition Width="80"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox x:Name="txtNewShiftType" Grid.Column="0" FontSize="11" Height="26" Padding="5,3"/>
+                                <Border x:Name="AddShiftTypeBorder" Grid.Column="2">
+                                    <Button x:Name="btnAddShiftType" Content="追加" FontSize="10" FontWeight="Bold" Background="Transparent" Foreground="White" BorderThickness="0" Cursor="Hand" Height="26"/>
+                                </Border>
+                            </Grid>
+                            <Border x:Name="DeleteShiftTypeBorder" Margin="0,10,0,0" HorizontalAlignment="Right">
+                                <Button x:Name="btnDeleteShiftType" Content="選択を削除" FontSize="10" FontWeight="Bold" Background="Transparent" Foreground="White" BorderThickness="0" Cursor="Hand" Height="26" Padding="15,0"/>
+                            </Border>
+                        </StackPanel>
+                    </Border>
+                    <Border x:Name="SaveShiftTypesBorder" HorizontalAlignment="Center" Margin="0,10,0,20">
+                        <Button x:Name="btnSaveShiftTypes" Content="設定を保存" FontSize="12" FontWeight="Bold" Background="Transparent" Foreground="White" BorderThickness="0" Cursor="Hand" Height="40" Padding="30,0"/>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+        </TabItem>
     </TabControl>
 </Window>

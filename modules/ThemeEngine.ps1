@@ -242,7 +242,7 @@ function Apply-Theme {
     }
 
     # Settings Section Titles
-    foreach ($name in @("LblAppearance", "LblUserInfo", "LblTeamsWorkflow", "LblManagers")) {
+    foreach ($name in @("LblAppearance", "LblUserInfo", "LblTeamsWorkflow", "LblManagers", "LblShiftTypes")) {
         $lbl = $window.FindName($name)
         if ($lbl) {
             $lbl.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.ColorConverter]::ConvertFromString($theme.TabActiveText))
@@ -250,7 +250,7 @@ function Apply-Theme {
     }
 
     # Settings Section Borders
-    foreach ($name in @("ThemeSectionBorder", "UserInfoBorder", "TeamsWorkflowBorder", "ManagersBorder")) {
+    foreach ($name in @("ThemeSectionBorder", "UserInfoBorder", "TeamsWorkflowBorder", "ManagersBorder", "ShiftTypesBorder")) {
         $border = $window.FindName($name)
         if ($border) {
             $border.Background = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.ColorConverter]::ConvertFromString($theme.InputBg))
@@ -272,10 +272,83 @@ function Apply-Theme {
         $deleteManagerBorder.CornerRadius = $theme.CornerRadiusInput
     }
 
+    # === 出勤形態セクション ===
+    $lblShiftTypesNote = $window.FindName("LblShiftTypesNote")
+    if ($lblShiftTypesNote) {
+        $lblShiftTypesNote.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.ColorConverter]::ConvertFromString($theme.TextSecondary))
+    }
+
+    $lbShiftTypes = $window.FindName("lbShiftTypes")
+    if ($lbShiftTypes) {
+        $lbShiftTypes.Background = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.ColorConverter]::ConvertFromString($theme.InputBg))
+        $lbShiftTypes.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.ColorConverter]::ConvertFromString($theme.InputText))
+        $lbShiftTypes.BorderBrush = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.ColorConverter]::ConvertFromString($theme.InputBorder))
+
+        $lbBgColor = $theme.InputBg
+        $lbFgColor = $theme.InputText
+        $lbHoverBg = $theme.CardBorder
+        $lbSelectedBg = if ($themeName -eq "dark") { "#1E3A8A" } else { "#DBEAFE" }
+        $lbItemStyleXaml = @"
+<Style xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+       TargetType="ListBoxItem">
+    <Setter Property="Background" Value="$lbBgColor"/>
+    <Setter Property="Foreground" Value="$lbFgColor"/>
+    <Setter Property="BorderThickness" Value="0"/>
+    <Setter Property="Padding" Value="6,3"/>
+    <Setter Property="Template">
+        <Setter.Value>
+            <ControlTemplate TargetType="ListBoxItem">
+                <Border x:Name="Bd" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}" BorderThickness="0">
+                    <ContentPresenter/>
+                </Border>
+                <ControlTemplate.Triggers>
+                    <Trigger Property="IsMouseOver" Value="True">
+                        <Setter TargetName="Bd" Property="Background" Value="$lbHoverBg"/>
+                    </Trigger>
+                    <Trigger Property="IsSelected" Value="True">
+                        <Setter TargetName="Bd" Property="Background" Value="$lbSelectedBg"/>
+                    </Trigger>
+                </ControlTemplate.Triggers>
+            </ControlTemplate>
+        </Setter.Value>
+    </Setter>
+</Style>
+"@
+        $lbReader = [System.Xml.XmlReader]::Create([System.IO.StringReader]::new($lbItemStyleXaml))
+        $lbStyle = [System.Windows.Markup.XamlReader]::Load($lbReader)
+        $lbReader.Close()
+        $lbShiftTypes.ItemContainerStyle = $lbStyle
+    }
+
+    $addShiftTypeBorder = $window.FindName("AddShiftTypeBorder")
+    if ($addShiftTypeBorder) {
+        $addShiftTypeBorder.Background = New-GradientBrush -Colors $theme.BtnInfo
+        $addShiftTypeBorder.CornerRadius = $theme.CornerRadiusInput
+    }
+
+    $deleteShiftTypeBorder = $window.FindName("DeleteShiftTypeBorder")
+    if ($deleteShiftTypeBorder) {
+        $deleteShiftTypeBorder.Background = New-GradientBrush -Colors $theme.BtnDanger
+        $deleteShiftTypeBorder.CornerRadius = $theme.CornerRadiusInput
+    }
+
     $saveSettingsBorder = $window.FindName("SaveSettingsBorder")
     if ($saveSettingsBorder) {
         $saveSettingsBorder.Background = New-GradientBrush -Colors $theme.BtnSuccess
         $saveSettingsBorder.CornerRadius = $theme.CornerRadiusButton
+    }
+
+    # === 出勤形態タブ ===
+    $shiftTypeScrollViewer = $window.FindName("ShiftTypeScrollViewer")
+    if ($shiftTypeScrollViewer) {
+        $shiftTypeScrollViewer.Background = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.ColorConverter]::ConvertFromString($theme.CardBackground))
+    }
+
+    $saveShiftTypesBorder = $window.FindName("SaveShiftTypesBorder")
+    if ($saveShiftTypesBorder) {
+        $saveShiftTypesBorder.Background = New-GradientBrush -Colors $theme.BtnSuccess
+        $saveShiftTypesBorder.CornerRadius = $theme.CornerRadiusButton
     }
 
     # ===== TabItem テーマ動的適用 =====

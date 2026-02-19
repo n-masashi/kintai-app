@@ -43,6 +43,9 @@ Initialize-ControlPanel -window $window
 # 設定タブ初期化
 Initialize-SettingsTab -window $window
 
+# 出勤形態タブ初期化
+Initialize-ShiftTypeTab -window $window
+
 # 初期テーマ適用
 $currentTheme = if ($script:settings.theme) { $script:settings.theme } else { "light" }
 Apply-Theme -window $window -themeName $currentTheme
