@@ -186,6 +186,13 @@
                         </Grid>
                     </StackPanel>
                 </Border>
+
+                <!-- 処理中オーバーレイ -->
+                <Grid x:Name="ProcessingOverlay" Grid.ColumnSpan="2" Visibility="Collapsed" Panel.ZIndex="10">
+                    <Rectangle Fill="#70000000"/>
+                    <TextBlock Text="処理中..." Foreground="White" FontSize="15" FontWeight="Bold"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Grid>
             </Grid>
         </TabItem>
 
