@@ -8,8 +8,10 @@ function Write-ClockIn {
 
     # --- ローディング開始 ---
     $btnClockIn = $Window.FindName("BtnClockIn")
+    $script:processingOverlay = $Window.FindName("ProcessingOverlay")
     $btnClockIn.IsEnabled = $false
     $btnClockIn.Content = "処理中..."
+    if ($script:processingOverlay) { $script:processingOverlay.Visibility = [System.Windows.Visibility]::Visible }
     $Window.Dispatcher.Invoke([System.Windows.Threading.DispatcherPriority]::Render, [action]{})
 
     $excel = $null
@@ -225,6 +227,7 @@ function Write-ClockIn {
         [GC]::Collect()
         [GC]::WaitForPendingFinalizers()
         # --- ローディング終了（常に実行）---
+        if ($script:processingOverlay) { $script:processingOverlay.Visibility = [System.Windows.Visibility]::Collapsed }
         $btnClockIn.IsEnabled = $true
         $btnClockIn.Content = "出 勤"
     }
@@ -236,8 +239,10 @@ function Write-ClockOut {
 
     # --- ローディング開始 ---
     $btnClockOut = $Window.FindName("BtnClockOut")
+    $script:processingOverlay = $Window.FindName("ProcessingOverlay")
     $btnClockOut.IsEnabled = $false
     $btnClockOut.Content = "処理中..."
+    if ($script:processingOverlay) { $script:processingOverlay.Visibility = [System.Windows.Visibility]::Visible }
     $Window.Dispatcher.Invoke([System.Windows.Threading.DispatcherPriority]::Render, [action]{})
 
     $excel = $null
@@ -392,6 +397,7 @@ function Write-ClockOut {
         [GC]::Collect()
         [GC]::WaitForPendingFinalizers()
         # --- ローディング終了（常に実行）---
+        if ($script:processingOverlay) { $script:processingOverlay.Visibility = [System.Windows.Visibility]::Collapsed }
         $btnClockOut.IsEnabled = $true
         $btnClockOut.Content = "退 勤"
     }
@@ -573,6 +579,13 @@ function Write-BulkInput {
         return
     }
 
+    # --- ローディング開始 ---
+    $btnBulkInput = $Window.FindName("BtnBulkInput")
+    $script:processingOverlay = $Window.FindName("ProcessingOverlay")
+    $btnBulkInput.IsEnabled = $false
+    if ($script:processingOverlay) { $script:processingOverlay.Visibility = [System.Windows.Visibility]::Visible }
+    $Window.Dispatcher.Invoke([System.Windows.Threading.DispatcherPriority]::Render, [action]{})
+
     # 月ごとにグループ化（タイムシートは月単位のため）
     $datesByMonth = @{}
     foreach ($dateStr in $targetDates) {
@@ -671,6 +684,10 @@ function Write-BulkInput {
             [GC]::WaitForPendingFinalizers()
         }
     }
+
+    # --- ローディング終了 ---
+    if ($script:processingOverlay) { $script:processingOverlay.Visibility = [System.Windows.Visibility]::Collapsed }
+    $btnBulkInput.IsEnabled = $true
 
     # 結果表示
     if ($errorMessages.Count -eq 0) {
