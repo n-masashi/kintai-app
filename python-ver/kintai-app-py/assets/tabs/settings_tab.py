@@ -15,6 +15,12 @@ _KEY_TO_THEME  = {v: k for k, v in _THEME_TO_KEY.items()}
 from PyQt5.QtCore import Qt
 
 
+class _NoScrollComboBox(QComboBox):
+    """マウスホイールで選択変更しないコンボボックス"""
+    def wheelEvent(self, event):
+        event.ignore()
+
+
 class SettingsTab(QWidget):
     """設定タブ"""
 
@@ -41,6 +47,12 @@ class SettingsTab(QWidget):
         main_layout = QVBoxLayout(container)
         main_layout.setSpacing(10)
         main_layout.setContentsMargins(12, 12, 12, 12)
+
+        # ── 注意書き ──
+        notice = QLabel("設定を修正した場合は必ず下部にある保存ボタンを押して保存してください")
+        notice.setAlignment(Qt.AlignCenter)
+        notice.setStyleSheet("color: red; font-weight: bold; padding: 4px;")
+        main_layout.addWidget(notice)
 
         # ── ユーザー情報 ──
         user_group = QGroupBox("ユーザー情報")
@@ -141,7 +153,7 @@ class SettingsTab(QWidget):
         # ── テーマ ──
         theme_group = QGroupBox("テーマ")
         theme_layout = QHBoxLayout(theme_group)
-        self.theme_combo = QComboBox()
+        self.theme_combo = _NoScrollComboBox()
         self.theme_combo.addItems(_THEME_LABELS)
         self.theme_combo.currentIndexChanged.connect(self._on_theme_changed)
         theme_layout.addWidget(self.theme_combo)

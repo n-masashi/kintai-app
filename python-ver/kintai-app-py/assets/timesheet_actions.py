@@ -265,7 +265,9 @@ def clock_out(
         # ・それ以外（深夜通常/通常日跨ぎ/深夜日跨ぎ）: 実時刻 + 24h
         #   ※深夜日跨ぎ（翌々日退勤）も +24h のみ。前前日行に書くことで区別する。
         rounded_dt = round_time(now)
-        if is_cross_day or is_night:
+        if is_cross_day and is_night:
+            end_serial = time_to_excel_serial(rounded_dt.hour + 48, rounded_dt.minute)
+        elif is_cross_day or is_night:
             end_serial = time_to_excel_serial(rounded_dt.hour + 24, rounded_dt.minute)
         else:
             end_serial = time_to_excel_serial(rounded_dt.hour, rounded_dt.minute)
