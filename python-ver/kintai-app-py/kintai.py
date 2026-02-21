@@ -6,6 +6,7 @@ from PyQt5.QtWidgets import QApplication, QMainWindow, QTabWidget, QWidget
 from PyQt5.QtGui import QFont, QFontDatabase
 from PyQt5.QtCore import Qt
 
+from assets.app_logger import setup_logging, get_logger
 from assets.config import Config
 from assets.theme_engine import apply_theme
 from assets.tabs.attendance_tab import AttendanceTab
@@ -100,6 +101,10 @@ def _setup_font(app: QApplication) -> None:
 
 
 def main() -> None:
+    setup_logging()
+    log = get_logger("kintai.main")
+    log.info("=== アプリ起動 ===")
+
     QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
     QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
 

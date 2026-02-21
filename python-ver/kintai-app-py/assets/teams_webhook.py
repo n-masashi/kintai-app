@@ -12,6 +12,9 @@ try:
 except ImportError:
     REQUESTS_AVAILABLE = False
 
+from assets.app_logger import get_logger
+_log = get_logger("kintai.webhook")
+
 
 def send_teams_post(config, message_type: str, data: Dict[str, Any]) -> None:
     """
@@ -32,8 +35,10 @@ def send_teams_post(config, message_type: str, data: Dict[str, Any]) -> None:
     else:
         return
 
+    _log.info("Teams POST 送信: type=%s user=%s", message_type, user_name)
     _save_debug_json(payload)
     _post(config, payload)
+    _log.info("Teams POST 成功: type=%s", message_type)
 
 
 # ─────────────────────────── ペイロード構築 ───────────────────────────
@@ -45,6 +50,7 @@ def _build_clock_in_payload(
 ) -> Dict[str, Any]:
     """出勤用ペイロード"""
     check_type = "出勤"
+    shift      = data.get("shift", "")
     work_mode  = data.get("work_style", "")
     comment    = data.get("comment", "") or ""
     mention_data: List = []
@@ -52,7 +58,7 @@ def _build_clock_in_payload(
     column_obj  = _build_column_obj(user_name, check_type)
     message_obj = {
         "type":    "TextBlock",
-        "text":    f"業務を開始します({work_mode})",
+        "text":    f"業務を開始します。[{shift}({work_mode})]",
         "size":    "Medium",
         "wrap":    True,
         "spacing": "None",
@@ -107,7 +113,7 @@ def _build_clock_out_payload(
         "items": [
             {
                 "type":    "TextBlock",
-                "text":    f"退勤します。次回は{next_date_text} {next_work_mode}({next_shift})です。",
+                "text":    f"退勤します。次回は {next_date_text} {next_shift}{next_work_mode}です。",
                 "size":    "Medium",
                 "wrap":    True,
                 "spacing": "None",
@@ -210,6 +216,7 @@ def _post(config, payload: Dict[str, Any]) -> None:
             timeout=10,
         )
         if resp.status_code not in (200, 202):
+            _log.error("Teams POST 失敗: HTTP %s %s", resp.status_code, resp.text[:200])
             raise Exception(f"HTTP {resp.status_code}: {resp.text[:200]}")
     else:
         req = urllib.request.Request(
@@ -220,6 +227,7 @@ def _post(config, payload: Dict[str, Any]) -> None:
         )
         with urllib.request.urlopen(req, timeout=10) as resp:
             if resp.status not in (200, 202):
+                _log.error("Teams POST 失敗: HTTP %s", resp.status)
                 raise Exception(f"HTTP {resp.status}")
 
 
@@ -261,6 +269,6 @@ def _save_debug_json(payload: Dict[str, Any]) -> None:
 
 
 def _format_date_short(d: date) -> str:
-    """date を 'M月D日(曜)' 形式にフォーマット"""
+    """date を 'M/D(曜)' 形式にフォーマット（例: 2/21(土)）"""
     weekdays = ["月", "火", "水", "木", "金", "土", "日"]
-    return f"{d.month}月{d.day}日({weekdays[d.weekday()]})"
+    return f"{d.month}/{d.day}({weekdays[d.weekday()]})"

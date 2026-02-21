@@ -19,10 +19,29 @@ from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGroupBox,
     QPushButton, QComboBox, QRadioButton, QCheckBox,
     QLabel, QTextEdit, QButtonGroup, QSizePolicy, QFrame,
-    QMessageBox
+    QMessageBox, QApplication
 )
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QColor
+from PyQt5.QtGui import QColor, QPainter, QFont
+
+
+class LoadingOverlay(QWidget):
+    """処理中オーバーレイ: 親ウィンドウ全体を半透明で暗くして「処理中...」を表示する"""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setAttribute(Qt.WA_TransparentForMouseEvents, False)
+
+    def paintEvent(self, event):
+        p = QPainter(self)
+        p.fillRect(self.rect(), QColor(0, 0, 0, 150))
+        p.setPen(QColor(255, 255, 255))
+        font = QFont()
+        font.setPointSize(16)
+        font.setBold(True)
+        p.setFont(font)
+        p.drawText(self.rect(), Qt.AlignCenter, "処理中...")
+        p.end()
 
 try:
     from assets.calendar_widget import CalendarWidget
@@ -211,8 +230,12 @@ class AttendanceTab(QWidget):
 
     def _on_shift_changed(self, shift: str) -> None:
         """シフト選択変更時にボタンのラベルと有効状態を更新する"""
+        is_realtime = shift in REALTIME_SHIFTS
+        self.remote_radio.setEnabled(is_realtime)
+        self.office_radio.setEnabled(is_realtime)
+
         if not self._batch_dates:
-            if shift in REALTIME_SHIFTS:
+            if is_realtime:
                 self.clock_in_btn.setText(f"{shift}  出勤")
                 self.clock_in_btn.setEnabled(True)
                 self.clock_out_btn.setText(f"{shift}  退勤")
@@ -353,23 +376,30 @@ class AttendanceTab(QWidget):
             return None
 
         try:
-            ok, teams_error = ta.clock_in(
-                config=self.config,
-                shift=shift,
-                work_style=work_style,
-                target_date=target_date,
-                is_assumed=is_assumed,
-                no_post=no_post,
-                late_reason_cb=late_reason_cb,
-                half_day_cb=half_day_cb,
-                remark_cb=remark_cb,
-                status_cb=self.set_status,
-            )
+            self._show_loading()
+            try:
+                ok, teams_error = ta.clock_in(
+                    config=self.config,
+                    shift=shift,
+                    work_style=work_style,
+                    target_date=target_date,
+                    is_assumed=is_assumed,
+                    no_post=no_post,
+                    late_reason_cb=late_reason_cb,
+                    half_day_cb=half_day_cb,
+                    remark_cb=remark_cb,
+                    status_cb=self.set_status,
+                )
+            finally:
+                self._hide_loading()
             if ok:
+                shift_line = shift
+                if shift in REALTIME_SHIFTS and not is_assumed:
+                    shift_line += f"({work_style})"
                 msg = (
                     f"出勤打刻が完了しました。\n\n"
                     f"日付: {target_date.strftime('%Y/%m/%d')}\n"
-                    f"シフト: {shift}　{work_style}"
+                    f"シフト: {shift_line}"
                 )
                 if teams_error:
                     msg += f"\n\n⚠ {teams_error}"
@@ -431,16 +461,20 @@ class AttendanceTab(QWidget):
         }
 
         try:
-            ok, teams_error = ta.clock_out(
-                config=self.config,
-                shift=shift,
-                work_style=work_style,
-                target_date=target_date,
-                no_post=no_post,
-                clock_out_info=clock_out_info,
-                status_cb=self.set_status,
-                is_cross_day=is_cross_day,
-            )
+            self._show_loading()
+            try:
+                ok, teams_error = ta.clock_out(
+                    config=self.config,
+                    shift=shift,
+                    work_style=work_style,
+                    target_date=target_date,
+                    no_post=no_post,
+                    clock_out_info=clock_out_info,
+                    status_cb=self.set_status,
+                    is_cross_day=is_cross_day,
+                )
+            finally:
+                self._hide_loading()
             if ok:
                 msg = (
                     f"退勤打刻が完了しました。\n\n"
@@ -508,15 +542,19 @@ class AttendanceTab(QWidget):
             self.set_status(msg, color)
 
         try:
-            success, fail = ta.batch_write(
-                config=self.config,
-                dates=list(self._batch_dates),
-                shift=shift,
-                work_style=work_style,
-                half_day_cb=half_day_cb,
-                remark_cb=remark_cb,
-                status_cb=batch_status_cb,
-            )
+            self._show_loading()
+            try:
+                success, fail = ta.batch_write(
+                    config=self.config,
+                    dates=list(self._batch_dates),
+                    shift=shift,
+                    work_style=work_style,
+                    half_day_cb=half_day_cb,
+                    remark_cb=remark_cb,
+                    status_cb=batch_status_cb,
+                )
+            finally:
+                self._hide_loading()
             summary = f"成功: {success} 件 / 失敗: {fail} 件"
             if errors:
                 detail = "\n".join(f"・{e}" for e in errors)
@@ -531,6 +569,19 @@ class AttendanceTab(QWidget):
             QMessageBox.warning(self, "未定義の出勤形態", str(e))
         except Exception as e:
             QMessageBox.critical(self, "エラー", f"エラーが発生しました:\n{e}")
+
+    def _show_loading(self) -> None:
+        win = self.window()
+        if not hasattr(self, '_overlay'):
+            self._overlay = LoadingOverlay(win)
+        self._overlay.resize(win.size())
+        self._overlay.raise_()
+        self._overlay.show()
+        QApplication.processEvents()
+
+    def _hide_loading(self) -> None:
+        if hasattr(self, '_overlay'):
+            self._overlay.hide()
 
     def update_shift_types(self, shift_types: list) -> None:
         """出勤形態コンボボックスを更新する"""

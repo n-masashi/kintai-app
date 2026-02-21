@@ -4,6 +4,9 @@ from datetime import datetime, date, timedelta
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Any
 
+from assets.app_logger import get_logger
+_log = get_logger("kintai.actions")
+
 try:
     import openpyxl
     from openpyxl.utils.datetime import to_excel
@@ -69,6 +72,7 @@ def clock_in(
     status_cb(msg, color) でUIへフィードバック。
     Returns True on success, False on failure.
     """
+    _log.info("clock_in 開始: date=%s shift=%s work_style=%s is_assumed=%s", target_date, shift, work_style, is_assumed)
     try:
         if shift in VACATION_FIXED:
             # 固定休暇: VACATION_CONFIG から各列の値を取得
@@ -199,6 +203,7 @@ def clock_in(
             try:
                 from assets.teams_webhook import send_teams_post
                 send_teams_post(config, "clock_in", {
+                    "shift": shift,
                     "work_style": work_style,
                     "comment": row_data.get("remark") or "",
                 })
@@ -210,11 +215,14 @@ def clock_in(
         if xlsx_path:
             write_to_excel(xlsx_path, row_data)
 
+        _log.info("clock_in 完了: date=%s shift=%s teams_error=%s", target_date, shift, teams_error or "なし")
         return True, teams_error
 
-    except (TimesheetNotFoundError, TimesheetLockedError, TimesheetWriteError, UnknownShiftTypeError):
+    except (TimesheetNotFoundError, TimesheetLockedError, TimesheetWriteError, UnknownShiftTypeError) as e:
+        _log.warning("clock_in エラー: %s", e)
         raise
     except Exception as e:
+        _log.error("clock_in 予期しないエラー: %s", e, exc_info=True)
         status_cb(f"出勤処理エラー: {e}", "red")
         return False, ""
 
@@ -234,6 +242,7 @@ def clock_out(
     clock_out_info keys: next_workday(date), next_shift(str), mention(str), comment(str)
     is_cross_day: 退勤時刻が日付を跨いでいる場合 True
     """
+    _log.info("clock_out 開始: shift=%s is_cross_day=%s", shift, is_cross_day)
     try:
         now = get_now()
 
@@ -335,11 +344,15 @@ def clock_out(
         if xlsx_path:
             write_to_excel(xlsx_path, row_data)
 
+        _log.info("clock_out 完了: date=%s shift=%s overtime=%s teams_error=%s",
+                  target_date, shift, overtime_type or "なし", teams_error or "なし")
         return True, teams_error
 
-    except (TimesheetNotFoundError, TimesheetLockedError, TimesheetWriteError):
+    except (TimesheetNotFoundError, TimesheetLockedError, TimesheetWriteError) as e:
+        _log.warning("clock_out エラー: %s", e)
         raise
     except Exception as e:
+        _log.error("clock_out 予期しないエラー: %s", e, exc_info=True)
         status_cb(f"退勤処理エラー: {e}", "red")
         return False, ""
 
@@ -354,6 +367,7 @@ def batch_write(
     status_cb: Callable,
 ) -> tuple:
     """複数日付のループ記入（一括記入）。(success_count, fail_count) を返す。"""
+    _log.info("batch_write 開始: shift=%s dates=%d件", shift, len(dates))
     success_count = 0
     fail_count = 0
 
@@ -443,29 +457,35 @@ def batch_write(
                 xlsx_path = _find_xlsx_or_raise(config, d)
                 if xlsx_path:
                     write_to_excel(xlsx_path, row_data)
-            except TimesheetNotFoundError:
+            except TimesheetNotFoundError as e:
+                _log.warning("batch_write タイムシート未検出: date=%s %s", d, e)
                 status_cb(
                     f"{d.strftime('%Y/%m/%d')} タイムシートが見つかりませんでした。", "orange"
                 )
                 fail_count += 1
                 continue
             except TimesheetLockedError as e:
+                _log.warning("batch_write ファイルロック: date=%s %s", d, e)
                 status_cb(
                     f"{d.strftime('%Y/%m/%d')} Excelが開かれています: {e.path.name}", "orange"
                 )
                 fail_count += 1
                 continue
             except TimesheetWriteError as e:
+                _log.warning("batch_write 書込エラー: date=%s %s", d, e)
                 status_cb(f"{d.strftime('%Y/%m/%d')} Excel書込エラー: {e}", "orange")
                 fail_count += 1
                 continue
 
+            _log.debug("batch_write 書込成功: date=%s", d)
             success_count += 1
 
         except Exception as e:
+            _log.error("batch_write 予期しないエラー: date=%s %s", d, e, exc_info=True)
             fail_count += 1
             status_cb(f"{d.strftime('%Y/%m/%d')} エラー: {e}", "orange")
 
+    _log.info("batch_write 完了: 成功=%d 失敗=%d", success_count, fail_count)
     return success_count, fail_count
 
 
@@ -518,6 +538,7 @@ def write_to_excel(xlsx_path: Path, row_data: dict) -> bool:
             ws.cell(row=row_num, column=12).value = row_data["remark"]
 
         wb.save(str(xlsx_path))
+        _log.debug("write_to_excel 完了: file=%s date=%s row=%d", xlsx_path.name, target_date, row_num)
         return True
 
     except PermissionError:
