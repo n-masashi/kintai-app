@@ -1,0 +1,28 @@
+{
+  "ad_name": "t-yamada",
+  "display_name": "山田 太郎",
+  "teams_user_id": "t-yamada@example.absdefg.com",
+  "shift_display_name": "山田",
+  "timesheet_display_name": "山田",
+  "webhook_url": "https://127.0.0.1/",
+  "timesheet_folder": "timesheet",
+  "output_folder": "attendance_data",
+  "theme": "sepia",
+  "shift_types": [
+    "日勤",
+    "早番",
+    "遅番",
+    "深夜",
+    "シフト休",
+    "健康診断(半日)",
+    "1日人間ドック",
+    "慶弔休暇",
+    "振休",
+    "1.0日有給",
+    "0.5日有給"
+  ],
+  "managers": [
+  ],
+  "proxy_sh": "",
+  "test_date": ""
+}
