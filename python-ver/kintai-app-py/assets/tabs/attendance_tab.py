@@ -100,10 +100,17 @@ class AttendanceTab(QWidget):
             cal_layout.addWidget(QLabel("カレンダー読み込みエラー"))
 
         self.selected_date_label = QLabel(_format_date_badge(get_today()))
-        self.selected_date_label.setAlignment(Qt.AlignCenter)
         self.selected_date_label.setObjectName("date_badge")
+        self.today_btn = QPushButton("今日に戻る")
+        self.today_btn.setFixedWidth(125)
+        self.today_btn.clicked.connect(self._on_today_btn_clicked)
+        date_row = QHBoxLayout()
+        date_row.setSpacing(6)
+        date_row.setContentsMargins(0, 0, 0, 0)
+        date_row.addWidget(self.selected_date_label, stretch=1)
+        date_row.addWidget(self.today_btn)
         cal_layout.addStretch()
-        cal_layout.addWidget(self.selected_date_label)
+        cal_layout.addLayout(date_row)
         cal_layout.addSpacing(10)
 
         root_layout.addWidget(cal_group, stretch=1)
@@ -264,6 +271,23 @@ class AttendanceTab(QWidget):
 
     def _on_date_selected(self, d: date) -> None:
         self.selected_date_label.setText(_format_date_badge(d))
+        if not self._batch_dates:
+            is_today = (d == get_today())
+            self.assumed_check.blockSignals(True)
+            if not is_today:
+                self.assumed_check.setChecked(True)
+                self.assumed_check.setEnabled(False)
+            else:
+                self.assumed_check.setEnabled(True)
+            self.assumed_check.blockSignals(False)
+            self._on_shift_changed(self.shift_combo.currentText())
+
+    def _on_today_btn_clicked(self) -> None:
+        today = get_today()
+        if self.calendar:
+            self.calendar.select_date(today)
+        else:
+            self._on_date_selected(today)
 
     def _on_date_double_clicked(self, d: date) -> None:
         self._add_date_to_batch(d)
@@ -310,8 +334,15 @@ class AttendanceTab(QWidget):
             else:
                 self.batch_error_label.setVisible(False)
         else:
-            # ロック解除
-            self.assumed_check.setEnabled(True)
+            # バッチ解除後は選択日付に応じて assumed_check の状態を復元
+            is_today = (self._get_selected_date() == get_today())
+            self.assumed_check.blockSignals(True)
+            if not is_today:
+                self.assumed_check.setChecked(True)
+                self.assumed_check.setEnabled(False)
+            else:
+                self.assumed_check.setEnabled(True)
+            self.assumed_check.blockSignals(False)
             self.no_post_check.setEnabled(True)
             self.batch_error_label.setVisible(False)
 

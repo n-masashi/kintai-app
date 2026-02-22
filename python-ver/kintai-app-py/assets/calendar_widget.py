@@ -322,6 +322,12 @@ class CalendarWidget(QWidget):
         """選択中の日付を返す"""
         return self._selected_date
 
+    def select_date(self, d: date) -> None:
+        """指定日付を選択して date_selected シグナルを発火する。必要なら月も移動する。"""
+        if d.year != self._year or d.month != self._month:
+            self.set_month(d.year, d.month)
+        self._on_cell_clicked(d)
+
     def prev_month(self) -> None:
         """前の月に移動する"""
         if self._month == 1:

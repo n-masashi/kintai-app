@@ -665,3 +665,339 @@ python -m pytest tests/ -v
 | `tests/test_webhook.py` | `teams_webhook` | Teams ペイロード構築・メンション解決・POST 呼出 |
 | `tests/test_logger.py` | `app_logger` | ログ設定・ハンドラー多重追加防止 |
 | `tests/conftest.py` | — | 共通フィクスチャ（`base_config` 等） |
+
+---
+
+### テスト項目一覧
+
+#### test_helpers.py
+
+**TestRoundTime** — `round_time()` 15分丸め
+
+| テスト関数 | 確認内容 |
+|---|---|
+| `test_round_down` | 7分 → 0分に切り捨て |
+| `test_round_up` | 8分 → 15分に切り上げ |
+| `test_exact_quarter` | ちょうど15分は変化なし |
+| `test_round_to_next_hour` | 53分 → 翌時0分 |
+| `test_midnight_rollover` | 23:53 → 翌日0:00（日付またぎ） |
+| `test_seconds_cleared` | 秒・マイクロ秒がクリアされる |
+| `test_half_point_rounds_up` | 境界値（7.5分）は切り上げ |
+
+**TestRoundTimeNightShift** — `round_time_night_shift()` 深夜シフト用丸め
+
+| テスト関数 | 確認内容 |
+|---|---|
+| `test_after_22_no_offset` | 22時以降は +24h なし |
+| `test_before_22_adds_24h` | 22時より前（翌朝）は +24h |
+| `test_exact_22_no_offset` | 22:00 ちょうどは +24h しない |
+| `test_early_morning_rounding` | 早朝（+24h後）の丸め結果が正しい |
+
+**TestTimeToExcelSerial** — `time_to_excel_serial()` Excel シリアル値変換
+
+| テスト関数 | 確認内容 |
+|---|---|
+| `test_9h` | 9:00 → 0.375 |
+| `test_18h` | 18:00 → 0.75 |
+| `test_0h` | 0:00 → 0.0 |
+| `test_24h` | 24:00 → 1.0 |
+| `test_25h` | 25:00（深夜通常退勤）→ 25/24 |
+| `test_49h` | 49:00（深夜翌々日退勤）→ 49/24 |
+| `test_half_hour` | 9:30 → 9.5/24 |
+| `test_22h30m` | 22:30（深夜始業）→ 22.5/24 |
+
+**TestIsLate** — `is_late()` 遅刻判定
+
+| テスト関数 | 確認内容 |
+|---|---|
+| `test_nichkin_late` | 日勤 10:11 → 遅刻 |
+| `test_nichkin_on_time` | 日勤 10:05 → 遅刻でない |
+| `test_nichkin_exactly_at_margin` | 日勤 10:10 ちょうど → 遅刻でない |
+| `test_hayaban_late` | 早番 7:15 → 遅刻 |
+| `test_hayaban_on_time` | 早番 7:00 → 遅刻でない |
+| `test_unknown_shift_not_late` | 未定義シフトは常に False |
+| `test_night_shift_late` | 深夜 22:45 → 遅刻 |
+| `test_night_shift_on_time` | 深夜 22:30 → 遅刻でない |
+| `test_night_shift_early_morning_late` | 深夜勤翌朝1時は前日比較で遅刻 |
+
+**TestFormatDateJp** — `format_date_jp()` 日本語日付フォーマット
+
+| テスト関数 | 確認内容 |
+|---|---|
+| `test_saturday` | 土曜日が正しく表示される |
+| `test_monday` | 月曜日が正しく表示される |
+| `test_zero_padded` | 月・日がゼロ埋めされる |
+
+**TestGetNowGetToday** — `get_now()` / `get_today()` 日時取得
+
+| テスト関数 | 確認内容 |
+|---|---|
+| `test_get_now_without_env` | 環境変数なし → 現在日時を返す |
+| `test_get_now_with_env` | `KINTAI_TEST_DATE` 設定 → その日付で返す |
+| `test_get_now_invalid_env_falls_back` | 不正な環境変数 → 現在日時にフォールバック |
+| `test_get_today_with_env` | `KINTAI_TEST_DATE` 設定 → その日付を返す |
+| `test_get_today_without_env` | 環境変数なし → 今日の日付を返す |
+
+**TestGetHolidays** — `get_holidays()` 祝日計算
+
+| テスト関数 | 確認内容 |
+|---|---|
+| `test_new_year` | 元日（1/1）が含まれる |
+| `test_coming_of_age_day_second_monday` | 成人の日（1月第2月曜）が含まれる |
+| `test_national_foundation_day` | 建国記念日（2/11）が含まれる |
+| `test_emperors_birthday` | 天皇誕生日（2/23）が含まれる |
+| `test_constitution_day` | 憲法記念日（5/3）が含まれる |
+| `test_greenery_day` | みどりの日（5/4）が含まれる |
+| `test_childrens_day` | こどもの日（5/5）が含まれる |
+| `test_culture_day` | 文化の日（11/3）が含まれる |
+| `test_labour_thanksgiving` | 勤労感謝の日（11/23）が含まれる |
+| `test_mountain_day` | 山の日（8/11）が含まれる |
+| `test_no_holidays_in_non_holiday_month` | 6月は祝日なし |
+| `test_returns_only_specified_month` | 指定月以外の日付が含まれない |
+
+**TestFindTimesheet** — `find_timesheet()` タイムシートファイル検索
+
+| テスト関数 | 確認内容 |
+|---|---|
+| `test_found` | 該当ファイルが見つかる |
+| `test_not_found_empty_dir` | 空フォルダ → None |
+| `test_wrong_month` | 月違いのファイル → None |
+| `test_wrong_name` | 名前違いのファイル → None |
+| `test_folder_not_exist` | 存在しないフォルダ → None |
+| `test_non_xlsx_ignored` | .csv 等は無視される |
+| `test_multiple_files_returns_one` | 複数一致でも1件返す |
+
+**TestGetRowForDate** — `get_row_for_date()` 対象行番号の特定
+
+| テスト関数 | 確認内容 |
+|---|---|
+| `test_day_1` | 1日 → 18行目 |
+| `test_day_15` | 15日 → 32行目 |
+| `test_day_28` | 28日 → 45行目 |
+| `test_day_29` | 29日 → 28日行 +1 |
+| `test_day_31` | 31日 → 28日行 +3 |
+| `test_day_not_found` | 該当日なし → None |
+| `test_non_numeric_cell_skipped` | 文字列セルは無視して正しい行を返す |
+
+---
+
+#### test_config.py
+
+**TestConfigDefaults** — `Config` デフォルト値
+
+| テスト関数 | 確認内容 |
+|---|---|
+| `test_default_theme` | テーマデフォルトは `"light"` |
+| `test_default_output_folder` | 出力フォルダデフォルトは `"attendance_data"` |
+| `test_default_shift_types_empty` | shift_types のデフォルトは空リスト |
+| `test_default_managers_empty` | managers のデフォルトは空リスト |
+| `test_default_strings_empty` | 文字列フィールドのデフォルトはすべて空文字 |
+
+**TestConfigLoad** — `Config.load()` JSON 読み込み
+
+| テスト関数 | 確認内容 |
+|---|---|
+| `test_load_valid_json` | 正常な JSON → フィールドに反映される |
+| `test_load_missing_file_returns_defaults` | ファイル不在 → デフォルト値で初期化 |
+| `test_load_invalid_json_returns_defaults` | 不正 JSON → デフォルト値で初期化 |
+| `test_load_partial_json_fills_defaults` | 一部フィールドのみ → 残りはデフォルト |
+| `test_load_managers` | managers 配列が正しく読み込まれる |
+| `test_load_shift_types` | shift_types 配列が正しく読み込まれる |
+
+**TestConfigSave** — `Config.save()` JSON 保存
+
+| テスト関数 | 確認内容 |
+|---|---|
+| `test_save_creates_file` | ファイルが作成される |
+| `test_save_creates_parent_dirs` | 親ディレクトリが存在しなくても自動作成 |
+| `test_save_and_reload_roundtrip` | 保存 → 再読込で値が一致する |
+| `test_save_utf8_encoding` | 日本語が UTF-8 で保存される |
+
+**TestConfigMigration** — 旧シフト名のマイグレーション
+
+| テスト関数 | 確認内容 |
+|---|---|
+| `test_migration_health_checkup` | `健康診断` → `健康診断(半日)` に変換 |
+| `test_migration_ningen_dock` | `人間ドック` → `1日人間ドック` に変換 |
+| `test_migration_keichou` | `慶弔` → `慶弔休暇` に変換 |
+| `test_migration_unchanged_shift` | 変換対象外のシフトは変化なし |
+| `test_migration_multiple` | 複数の旧名称が混在する場合も全変換 |
+
+**TestConfigToDict** — `Config.to_dict()` dict 変換
+
+| テスト関数 | 確認内容 |
+|---|---|
+| `test_to_dict_keys` | 期待するキーがすべて含まれる |
+| `test_to_dict_values_match` | フィールドの値が正しく反映される |
+
+---
+
+#### test_actions.py
+
+**TestOutputCsv** — `output_csv()` CSV 出力
+
+| テスト関数 | 確認内容 |
+|---|---|
+| `test_creates_csv` | CSV ファイルが作成される |
+| `test_csv_content_office` | 出社の場合 `(ﾃ` が付かない |
+| `test_csv_content_remote` | リモートの場合 `(ﾃ` が付く |
+| `test_csv_fallback_when_output_folder_empty` | output_folder 空 → デフォルトパスで動作 |
+| `test_csv_overwrite` | 2回目の呼び出しで上書きされる |
+
+**TestWriteToExcel** — `write_to_excel()` Excel 書き込み
+
+| テスト関数 | 確認内容 |
+|---|---|
+| `test_write_sets_shift_label` | E列にシフト名が書き込まれる |
+| `test_write_raises_on_row_not_found` | 対象行未検出 → `TimesheetWriteError` |
+| `test_write_permission_error_raises_locked` | PermissionError → `TimesheetLockedError` |
+
+**TestClockOutTargetAndSerial** — `clock_out()` ターゲット日付・シリアル値
+
+| テスト関数 | 確認内容 |
+|---|---|
+| `test_target_normal_shift_no_cross` | 通常シフト・通常退勤 → 当日 |
+| `test_target_normal_shift_cross_day` | 通常シフト・日跨ぎ → 前日 |
+| `test_target_night_shift_no_cross` | 深夜・通常退勤 → 前日 |
+| `test_target_night_shift_cross_day` | 深夜・翌々日退勤 → 前々日 |
+| `test_serial_normal_no_cross` | 通常・通常退勤 → hour そのまま |
+| `test_serial_normal_cross_day` | 通常・日跨ぎ → +24h |
+| `test_serial_night_no_cross` | 深夜・通常退勤 → +24h |
+| `test_serial_night_cross_day` | 深夜・翌々日退勤 → +48h |
+| `test_serial_rounding_applied` | 退勤時刻に15分丸めが適用される |
+| `test_overtime_detected` | 9時間超 → overtime_type = `客先指示` |
+| `test_no_overtime_within_9h` | 9時間以内 → overtime_type = None |
+
+**TestClockIn** — `clock_in()` 出勤処理
+
+| テスト関数 | 確認内容 |
+|---|---|
+| `test_realtime_normal` | 日勤・通常出勤 → shift_label と始業時刻が正しい |
+| `test_realtime_assumed` | 想定記入 → 始業・終業両方が設定される |
+| `test_realtime_hayaban` | 早番 7:00 → shift_label と始業時刻が正しい |
+| `test_realtime_late` | 遅刻 → shift_label=遅刻、備考に理由が入る |
+| `test_realtime_late_cancel` | 遅刻ダイアログキャンセル → ok=False |
+| `test_vacation_fixed_shift_rest` | シフト休 → 時刻なし |
+| `test_vacation_fixed_health_checkup` | 健康診断(半日) → 14:00-18:00 固定 |
+| `test_vacation_input_furikyu` | 振休 → 備考ダイアログの値が入る |
+| `test_vacation_input_cancel` | 振休ダイアログキャンセル → ok=False |
+| `test_half_day_paid` | 0.5日有給 → ダイアログの時刻が使われる |
+| `test_unknown_shift_raises` | 未定義シフト → `UnknownShiftTypeError` |
+
+**TestBatchWrite** — `batch_write()` 一括記入
+
+| テスト関数 | 確認内容 |
+|---|---|
+| `test_batch_realtime_success` | 3日分・全成功 → (3, 0) |
+| `test_batch_shift_rest` | シフト休2日 → (2, 0) |
+| `test_batch_partial_failure` | 1件タイムシート未検出 → (1, 1) |
+| `test_batch_unknown_shift_raises` | 未定義シフト → `UnknownShiftTypeError` |
+| `test_batch_vacation_input_cancel` | 振休キャンセル → (0, 0) |
+
+**TestFindXlsxOrRaise** — `_find_xlsx_or_raise()` タイムシート検索
+
+| テスト関数 | 確認内容 |
+|---|---|
+| `test_raises_when_no_folder` | フォルダ未設定 → `TimesheetNotFoundError` |
+| `test_raises_when_no_name` | 名前未設定 → `TimesheetNotFoundError` |
+| `test_raises_when_file_not_found` | ファイルなし → `TimesheetNotFoundError` |
+| `test_returns_path_when_found` | 該当ファイルあり → Path を返す |
+
+---
+
+#### test_webhook.py
+
+**TestFormatDateShort** — `_format_date_short()` 短縮日付フォーマット
+
+| テスト関数 | 確認内容 |
+|---|---|
+| `test_saturday` | 土曜日 → `2/21(土)` |
+| `test_monday` | 月曜日 → `2/23(月)` |
+| `test_sunday` | 日曜日 → `2/22(日)` |
+| `test_single_digit_month_day` | 一桁の月日 → ゼロ埋めなし |
+| `test_all_weekdays` | 月〜日の全曜日が正しく表示される |
+
+**TestBuildCommentObj** — `_build_comment_obj()` コメント部品生成
+
+| テスト関数 | 確認内容 |
+|---|---|
+| `test_empty_comment_returns_empty_dict` | 空コメント → `{}` |
+| `test_whitespace_only_returns_empty_dict` | スペースのみ → `{}` |
+| `test_none_like_empty` | コメント空・メンションあり → `{}` |
+| `test_comment_with_mention` | コメントあり・メンションあり → spacing=None |
+| `test_comment_without_mention` | コメントあり・メンションなし → spacing=Small |
+| `test_mention_list_empty_vs_none` | メンションあり/なしでスタイルが異なる |
+
+**TestBuildColumnObj** — `_build_column_obj()` カラム部品生成
+
+| テスト関数 | 確認内容 |
+|---|---|
+| `test_clock_in_text` | `〇〇が出勤しました` テキストが含まれる |
+| `test_clock_out_text` | `〇〇が退勤しました` テキストが含まれる |
+| `test_bolder_weight` | フォントウェイトが Bolder |
+
+**TestBuildClockInPayload** — `_build_clock_in_payload()` 出勤ペイロード
+
+| テスト関数 | 確認内容 |
+|---|---|
+| `test_basic_structure` | 必須キーがすべて存在する |
+| `test_message_contains_shift` | メッセージにシフト名が含まれる |
+| `test_message_contains_work_style` | メッセージに勤務形態が含まれる |
+| `test_no_comment_empty_comment_obj` | コメントなし → comment が `{}` |
+| `test_with_comment` | コメントあり → text に含まれる |
+| `test_mention_data_empty_when_no_mention` | メンションなし → mention_data が空 |
+
+**TestBuildClockOutPayload** — `_build_clock_out_payload()` 退勤ペイロード
+
+| テスト関数 | 確認内容 |
+|---|---|
+| `test_basic_structure` | 必須キーがすべて存在する |
+| `test_next_workday_formatted` | 次回出勤日・シフトがメッセージに含まれる |
+| `test_mention_single_manager` | 個人名メンション → その1件のみ |
+| `test_mention_all_managers` | `@All管理職` → 全員の teams_id が入る |
+| `test_mention_unknown_name_no_mention` | 存在しない名前 → mention_data が空 |
+| `test_no_mention` | メンションなし → mention_data が空 |
+
+**TestAssemblePayload** — `_assemble_payload()` 最終ペイロード組み立て
+
+| テスト関数 | 確認内容 |
+|---|---|
+| `test_keys_present` | 5つの必須キーがすべて存在する |
+| `test_values_are_json_strings` | column/message/comment が JSON 文字列として解析できる |
+| `test_mention_data_passed_through` | mention_data がそのまま渡される |
+| `test_user_id_passed_through` | userId がそのまま渡される |
+
+**TestSendTeamsPost** — `send_teams_post()` Teams POST 送信
+
+| テスト関数 | 確認内容 |
+|---|---|
+| `test_no_webhook_url_does_nothing` | Webhook URL 空 → POST しない |
+| `test_none_config_does_nothing` | config が None → POST しない |
+| `test_clock_in_calls_post` | 出勤 → POST が1回呼ばれる |
+| `test_clock_out_calls_post` | 退勤 → POST が1回呼ばれる |
+| `test_unknown_message_type_does_nothing` | 未知のタイプ → POST しない |
+
+---
+
+#### test_logger.py
+
+**TestSetupLogging** — `setup_logging()` ログ初期化
+
+| テスト関数 | 確認内容 |
+|---|---|
+| `test_creates_log_dir` | ログディレクトリが存在しない場合に自動作成 |
+| `test_adds_rotating_file_handler` | RotatingFileHandler がルートロガーに追加される |
+| `test_no_duplicate_handler` | 複数回呼んでもハンドラーは1つだけ |
+| `test_root_logger_level_debug` | ルートロガーのレベルが DEBUG に設定される |
+| `test_handler_max_bytes` | maxBytes が 250KB |
+| `test_handler_backup_count` | backupCount が 3 |
+| `test_existing_rotating_handler_not_duplicated` | 既存 RFH がある場合は追加しない |
+
+**TestGetLogger** — `get_logger()` ロガー取得
+
+| テスト関数 | 確認内容 |
+|---|---|
+| `test_returns_logger_instance` | Logger インスタンスが返される |
+| `test_logger_name` | 指定した名前のロガーが返される |
+| `test_different_names_different_loggers` | 異なる名前では別インスタンス |
+| `test_same_name_same_logger` | 同じ名前では同一インスタンス（キャッシュ動作） |
