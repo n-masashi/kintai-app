@@ -1,7 +1,7 @@
 # 勤怠打刻アプリ 詳細設計書
 
 - **バージョン**: v3.0.0
-- **最終更新**: 2026-02-21
+- **最終更新**: 2026-02-22
 
 ---
 
@@ -76,6 +76,8 @@ kintai-app-py/
 │   ├── theme_engine.py              # QSS テーマ生成・適用
 │   ├── logs/
 │   │   └── app.log                  # ローテーションログ（自動生成）
+│   ├── images/
+│   │   └── *.png                    # 退勤完了ダイアログ表示用画像
 │   ├── dialogs/
 │   │   ├── __init__.py
 │   │   ├── clock_out_dialog.py      # 退勤情報入力ダイアログ
@@ -245,10 +247,10 @@ get_now() / get_today() が参照
 
 | メソッド | 説明 |
 |---|---|
-| `_on_shift_changed()` | シフト選択変更時にボタンラベル・有効状態・出勤形式 Radio の有効状態を更新 |
+| `_on_shift_changed()` | シフト選択変更時にボタンラベル・有効状態・出勤形式 Radio の有効状態を更新。REALTIME_SHIFTS **かつ** 想定入力チェックあり **かつ** 一括リスト未選択の場合、退勤ボタンを無効化し出勤ボタンに `(想定)` を付与（例: `早番  出勤(想定)`） |
 | `_show_loading()` / `_hide_loading()` | `LoadingOverlay` の表示・非表示。`processEvents()` で即時描画 |
 | `on_clock_in()` | 出勤ボタン処理。コールバック定義 → `ta.clock_in()` 呼出 → 結果表示 |
-| `on_clock_out()` | 退勤ボタン処理。`ClockOutDialog` 表示 → `ta.clock_out()` 呼出 → 結果表示 |
+| `on_clock_out()` | 退勤ボタン処理。`ClockOutDialog` 表示 → `ta.clock_out()` 呼出 → カスタム完了ダイアログ表示（退勤時刻・次回出勤・ランダム画像） |
 | `on_batch_write()` | 一括記入ボタン処理。`ta.batch_write()` 呼出 → 結果サマリー表示 |
 | `update_shift_types()` | 出勤形態コンボボックスを再構築（`ShiftTypeTab` から呼ばれる） |
 
@@ -257,6 +259,10 @@ get_now() / get_today() が参照
 ---
 
 ### 4.9 `assets/tabs/settings_tab.py` — 設定タブ
+
+タブ最上部に **「設定を修正した場合は必ず下部にある保存ボタンを押して保存してください」** の注意書きラベル（赤字・太字）を表示する。
+
+テーマ選択コンボは `_NoScrollComboBox`（`QComboBox` サブクラス）を使用しており、マウスホイールによる誤操作を防ぐためホイールイベントを無視する。
 
 | メソッド | 説明 |
 |---|---|
@@ -346,10 +352,11 @@ get_now() / get_today() が参照
 
 #### 終業時刻のシリアル値
 
-| 条件 | 計算 |
-|---|---|
-| 通常シフト・通常退勤 | `round_time(now)` → シリアル値（24h 表記） |
-| 深夜 or 日跨ぎ | `round_time(now).hour + 24` → 24h 超えシリアル値 |
+| 条件 | 計算 | 例 |
+|---|---|---|
+| 通常シフト・通常退勤 | `round_time(now).hour` | `18:00` |
+| 深夜（通常退勤）/ 通常シフト日跨ぎ | `round_time(now).hour + 24` | `25:00` |
+| 深夜 **かつ** 日跨ぎ（翌々日退勤） | `round_time(now).hour + 48` | `49:00` |
 
 #### 残業判定
 
@@ -358,6 +365,14 @@ get_now() / get_today() が参照
 #### Teams 投稿条件
 
 - リアルタイムシフト **かつ** `TeamsPostなし` チェックなし
+
+#### 退勤完了ダイアログ
+
+`QMessageBox` ではなくカスタム `QDialog` を使用。
+
+- **退勤時刻**: `round_time(get_now())` の結果を `YYYY/MM/DD HH:MM` 形式で表示
+- **次回の出勤**: `ClockOutDialog` で入力した次回出勤日・シフト・勤務形態を `M/D(曜) シフト名勤務形態` 形式で表示
+- **画像**: `assets/images/` 内の画像をランダムで1枚選択し、OKボタン左隣（75×75）に表示。画像が存在しない場合は画像なしで表示
 
 ---
 
