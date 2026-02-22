@@ -68,6 +68,7 @@ def clock_in(
     half_day_cb: Callable,
     remark_cb: Callable,
     status_cb: Callable,
+    confirm_cb: Optional[Callable] = None,
 ) -> bool:
     """
     出勤処理。
@@ -186,6 +187,20 @@ def clock_in(
 
         else:
             raise UnknownShiftTypeError(shift)
+
+        # 最終確認ダイアログ
+        if confirm_cb is not None:
+            confirm_info = {
+                "shift": shift,
+                "shift_label": row_data.get("shift_label"),
+                "work_style": work_style,
+                "is_assumed": is_assumed,
+                "no_post": no_post,
+                "remark": row_data.get("remark"),
+            }
+            if not confirm_cb(confirm_info):
+                status_cb("キャンセルされました", "gray")
+                return False, ""
 
         # CSV出力判定
         if not is_assumed and shift in REALTIME_SHIFTS and target_date == get_today():

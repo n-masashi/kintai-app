@@ -278,6 +278,7 @@ class AttendanceTab(QWidget):
                 self.assumed_check.setChecked(True)
                 self.assumed_check.setEnabled(False)
             else:
+                self.assumed_check.setChecked(False)
                 self.assumed_check.setEnabled(True)
             self.assumed_check.blockSignals(False)
             self._on_shift_changed(self.shift_combo.currentText())
@@ -416,8 +417,41 @@ class AttendanceTab(QWidget):
                 return dlg.get_remark()
             return None
 
+        def confirm_cb(info):
+            shift_label = info.get("shift_label") or info.get("shift") or "-"
+            # 出勤形式: リアルタイムシフトかつ非想定のみ意味がある
+            is_rt_non_assumed = (
+                info.get("shift") in REALTIME_SHIFTS and not info.get("is_assumed")
+            )
+            work_style_str = info.get("work_style") or "-" if is_rt_non_assumed else "-"
+            # オプション
+            opts = []
+            if info.get("no_post"):
+                opts.append("TeamsPostなし")
+            if info.get("is_assumed"):
+                opts.append("想定入力")
+            opt_str = " / ".join(opts) if opts else "-"
+            # 備考
+            remark_str = info.get("remark") or "-"
+
+            msg = (
+                f"以下内容で出勤します。\n\n"
+                f"出勤形態　：{shift_label}\n"
+                f"出勤形式　：{work_style_str}\n"
+                f"オプション：{opt_str}\n"
+                f"備考　　　：{remark_str}"
+            )
+            result = QMessageBox.question(
+                self, "出勤確認", msg,
+                QMessageBox.Ok | QMessageBox.Cancel,
+                QMessageBox.Ok,
+            )
+            if result == QMessageBox.Ok:
+                self._show_loading()
+                return True
+            return False
+
         try:
-            self._show_loading()
             try:
                 ok, teams_error = ta.clock_in(
                     config=self.config,
@@ -430,6 +464,7 @@ class AttendanceTab(QWidget):
                     half_day_cb=half_day_cb,
                     remark_cb=remark_cb,
                     status_cb=self.set_status,
+                    confirm_cb=confirm_cb,
                 )
             finally:
                 self._hide_loading()
