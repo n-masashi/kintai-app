@@ -1,5 +1,7 @@
 """打刻タブ"""
+import random
 from datetime import date, datetime
+from pathlib import Path
 from typing import List, Optional
 
 try:
@@ -19,10 +21,10 @@ from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGroupBox,
     QPushButton, QComboBox, QRadioButton, QCheckBox,
     QLabel, QTextEdit, QButtonGroup, QSizePolicy, QFrame,
-    QMessageBox, QApplication
+    QMessageBox, QApplication, QDialog
 )
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QColor, QPainter, QFont
+from PyQt5.QtGui import QColor, QPainter, QFont, QPixmap
 
 
 class LoadingOverlay(QWidget):
@@ -504,7 +506,40 @@ class AttendanceTab(QWidget):
                 )
                 if teams_error:
                     msg += f"\n\n⚠ {teams_error}"
-                QMessageBox.information(self, "退勤完了", msg)
+
+                # カスタムダイアログ（OKボタン左に画像をランダム表示）
+                _images_dir = Path(__file__).parent.parent / "images"
+                _image_files = (
+                    [p for p in _images_dir.glob("*")
+                     if p.suffix.lower() in (".png", ".jpg", ".jpeg")]
+                    if _images_dir.exists() else []
+                )
+                _dlg = QDialog(self)
+                _dlg.setWindowTitle("退勤完了")
+                _dlg.setMinimumWidth(300)
+                _vlay = QVBoxLayout(_dlg)
+                _vlay.setSpacing(12)
+                _vlay.setContentsMargins(16, 16, 16, 16)
+                _text_lbl = QLabel(msg)
+                _text_lbl.setWordWrap(True)
+                _vlay.addWidget(_text_lbl)
+                _hlay = QHBoxLayout()
+                _hlay.addStretch(1)
+                if _image_files:
+                    _px = QPixmap(str(random.choice(_image_files)))
+                    _img_lbl = QLabel()
+                    _img_lbl.setPixmap(
+                        _px.scaled(75, 75, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                    )
+                    _hlay.addWidget(_img_lbl)
+                    _hlay.addStretch(1)
+                _ok = QPushButton("OK")
+                _ok.setDefault(True)
+                _ok.setFixedWidth(80)
+                _ok.clicked.connect(_dlg.accept)
+                _hlay.addWidget(_ok)
+                _vlay.addLayout(_hlay)
+                _dlg.exec_()
         except TimesheetNotFoundError as e:
             QMessageBox.warning(
                 self, "タイムシート未検出",
