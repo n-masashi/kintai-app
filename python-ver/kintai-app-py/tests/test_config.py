@@ -109,31 +109,6 @@ class TestConfigSave:
         assert "日本語テスト" in raw
 
 
-class TestConfigMigration:
-    def test_migration_health_checkup(self):
-        c = Config({"shift_types": ["健康診断"]})
-        assert "健康診断(半日)" in c.shift_types
-        assert "健康診断" not in c.shift_types
-
-    def test_migration_ningen_dock(self):
-        c = Config({"shift_types": ["人間ドック"]})
-        assert "1日人間ドック" in c.shift_types
-
-    def test_migration_keichou(self):
-        c = Config({"shift_types": ["慶弔"]})
-        assert "慶弔休暇" in c.shift_types
-
-    def test_migration_unchanged_shift(self):
-        c = Config({"shift_types": ["日勤", "早番"]})
-        assert "日勤" in c.shift_types
-        assert "早番" in c.shift_types
-
-    def test_migration_multiple(self):
-        c = Config({"shift_types": ["健康診断", "日勤", "慶弔"]})
-        assert "健康診断(半日)" in c.shift_types
-        assert "日勤" in c.shift_types
-        assert "慶弔休暇" in c.shift_types
-
 
 class TestConfigToDict:
     def test_to_dict_keys(self):

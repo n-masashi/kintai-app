@@ -35,13 +35,6 @@ class Config:
         self.output_folder: str = d.get("output_folder", self.DEFAULTS["output_folder"])
         self.theme: str = d.get("theme", self.DEFAULTS["theme"])
         self.shift_types: List[str] = d.get("shift_types", list(self.DEFAULTS["shift_types"]))
-        # 旧名称→新名称マイグレーション（既存 settings.json 対応）
-        _name_migration = {
-            "健康診断": "健康診断(半日)",
-            "人間ドック": "1日人間ドック",
-            "慶弔": "慶弔休暇",
-        }
-        self.shift_types = [_name_migration.get(s, s) for s in self.shift_types]
         self.managers: List[Dict[str, str]] = d.get("managers", list(self.DEFAULTS["managers"]))
         self.proxy_sh: str = d.get("proxy_sh", self.DEFAULTS["proxy_sh"])
         self.test_date: str = d.get("test_date", self.DEFAULTS["test_date"])

@@ -131,7 +131,7 @@ kintai-app-py/
 
 | メソッド | 説明 |
 |---|---|
-| `__init__(data)` | dict から各フィールドを初期化。旧名称の出勤形態を新名称へマイグレーション（下表参照） |
+| `__init__(data)` | dict から各フィールドを初期化 |
 | `Config.load(path)` | JSON ファイルから読込。ファイル不在・パースエラー時はデフォルト値で初期化 |
 | `save(path)` | `to_dict()` の結果を JSON に保存。親ディレクトリが存在しない場合は自動作成 |
 | `to_dict()` | 全フィールドを dict に変換して返す |
@@ -660,7 +660,7 @@ python -m pytest tests/ -v
 | ファイル | テスト対象モジュール | 主なテスト内容 |
 |---|---|---|
 | `tests/test_helpers.py` | `timesheet_helpers` | 時刻丸め・Excel シリアル値・祝日計算・遅刻判定・ファイル検索 |
-| `tests/test_config.py` | `config` | 設定の読込・保存・デフォルト値・マイグレーション |
+| `tests/test_config.py` | `config` | 設定の読込・保存・デフォルト値 |
 | `tests/test_actions.py` | `timesheet_actions` | 出退勤ロジック・CSV 出力・Excel 書込・一括記入 |
 | `tests/test_webhook.py` | `teams_webhook` | Teams ペイロード構築・メンション解決・POST 呼出 |
 | `tests/test_logger.py` | `app_logger` | ログ設定・ハンドラー多重追加防止 |
@@ -812,16 +812,6 @@ python -m pytest tests/ -v
 | `test_save_creates_parent_dirs` | 親ディレクトリが存在しなくても自動作成 |
 | `test_save_and_reload_roundtrip` | 保存 → 再読込で値が一致する |
 | `test_save_utf8_encoding` | 日本語が UTF-8 で保存される |
-
-**TestConfigMigration** — 旧シフト名のマイグレーション
-
-| テスト関数 | 確認内容 |
-|---|---|
-| `test_migration_health_checkup` | `健康診断` → `健康診断(半日)` に変換 |
-| `test_migration_ningen_dock` | `人間ドック` → `1日人間ドック` に変換 |
-| `test_migration_keichou` | `慶弔` → `慶弔休暇` に変換 |
-| `test_migration_unchanged_shift` | 変換対象外のシフトは変化なし |
-| `test_migration_multiple` | 複数の旧名称が混在する場合も全変換 |
 
 **TestConfigToDict** — `Config.to_dict()` dict 変換
 
