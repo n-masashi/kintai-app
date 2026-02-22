@@ -43,13 +43,11 @@ from assets.timesheet_constants import START_TIME_MAP, LATE_MARGIN_MIN, ROUND_UN
 
 
 def round_time(dt: datetime, unit: int = ROUND_UNIT_MIN) -> datetime:
-    """15分単位で四捨五入する。"""
+    """15分単位で四捨五入する。日跨ぎ（23:53→翌0:00）も正しく処理する。"""
     dt = dt.replace(second=0, microsecond=0)
     total_minutes = dt.hour * 60 + dt.minute
     rounded_minutes = round(total_minutes / unit) * unit
-    new_hours = rounded_minutes // 60
-    new_minutes = rounded_minutes % 60
-    return dt.replace(hour=new_hours, minute=new_minutes)
+    return dt.replace(hour=0, minute=0) + timedelta(minutes=rounded_minutes)
 
 
 def round_time_night_shift(dt: datetime, unit: int = ROUND_UNIT_MIN) -> dict:
