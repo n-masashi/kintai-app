@@ -8,6 +8,8 @@ from PyQt5.QtWidgets import (
     QFileDialog, QMessageBox, QFrame
 )
 
+_SETTINGS_JSON = Path(__file__).parent.parent.parent / "configs" / "settings.json"
+
 # テーマ名 ↔ 内部キーのマッピング
 _THEME_LABELS = ["ライト", "ダーク", "グリーン", "セピア", "ハイコントラスト"]
 _THEME_TO_KEY  = {"ライト": "light", "ダーク": "dark", "グリーン": "green", "セピア": "sepia", "ハイコントラスト": "high_contrast"}
@@ -259,6 +261,6 @@ class SettingsTab(QWidget):
                 managers.append({"name": name, "teams_id": teams_id})
         self.config.managers = managers
 
-        self.config.save("configs/settings.json")
+        self.config.save(str(_SETTINGS_JSON))
 
         QMessageBox.information(self, "保存完了", "設定を保存しました。")

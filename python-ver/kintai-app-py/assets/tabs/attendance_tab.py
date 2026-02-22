@@ -159,6 +159,9 @@ class AttendanceTab(QWidget):
         opt_box_layout.setSpacing(2)
         self.no_post_check = QCheckBox("TeamsPostなし")
         self.assumed_check = QCheckBox("想定入力")
+        self.assumed_check.stateChanged.connect(
+            lambda: self._on_shift_changed(self.shift_combo.currentText())
+        )
         opt_box_layout.addWidget(self.no_post_check)
         opt_box_layout.addWidget(self.assumed_check)
         style_opt_row.addWidget(opt_box)
@@ -236,10 +239,15 @@ class AttendanceTab(QWidget):
 
         if not self._batch_dates:
             if is_realtime:
-                self.clock_in_btn.setText(f"{shift}  出勤")
+                is_assumed = self.assumed_check.isChecked()
                 self.clock_in_btn.setEnabled(True)
                 self.clock_out_btn.setText(f"{shift}  退勤")
-                self.clock_out_btn.setEnabled(True)
+                if is_assumed:
+                    self.clock_in_btn.setText(f"{shift}  出勤(想定)")
+                    self.clock_out_btn.setEnabled(False)
+                else:
+                    self.clock_in_btn.setText(f"{shift}  出勤")
+                    self.clock_out_btn.setEnabled(True)
             elif shift:
                 self.clock_in_btn.setText(shift)
                 self.clock_in_btn.setEnabled(True)
@@ -476,10 +484,23 @@ class AttendanceTab(QWidget):
             finally:
                 self._hide_loading()
             if ok:
+                from assets.timesheet_helpers import get_now, round_time as _round_time
+                _rounded = _round_time(get_now())
+                clock_out_time_str = _rounded.strftime('%Y/%m/%d %H:%M')
+
+                next_workday  = clock_out_info.get("next_workday")
+                next_shift    = clock_out_info.get("next_shift", "")
+                next_work_mode = clock_out_info.get("next_work_mode", "")
+                if next_workday:
+                    next_date_str = f"{next_workday.month}/{next_workday.day}({_WEEKDAY_JA[next_workday.weekday()]})"
+                    next_line = f"{next_date_str} {next_shift}{next_work_mode}"
+                else:
+                    next_line = f"{next_shift}{next_work_mode}"
+
                 msg = (
-                    f"退勤打刻が完了しました。\n\n"
-                    f"日付: {target_date.strftime('%Y/%m/%d')}\n"
-                    f"シフト: {shift}　{work_style}"
+                    f"退勤打刻が完了しました。お疲れさまでした。\n\n"
+                    f"退勤時刻: {clock_out_time_str}\n"
+                    f"次回の出勤：{next_line}"
                 )
                 if teams_error:
                     msg += f"\n\n⚠ {teams_error}"

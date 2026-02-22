@@ -2,6 +2,8 @@
 import csv
 from datetime import datetime, date, timedelta
 from pathlib import Path
+
+_BASE_DIR = Path(__file__).parent.parent
 from typing import Callable, Dict, List, Optional, Any
 
 from assets.app_logger import get_logger
@@ -562,7 +564,10 @@ def output_csv(
     shift : シフト種別。リモートの場合は末尾に "(ﾃ" を付与（例: 日勤(ﾃ）
     """
     try:
-        output_dir = Path(config.output_folder if config else "attendance_data")
+        folder = (config.output_folder if config else "") or "attendance_data"
+        output_dir = Path(folder)
+        if not output_dir.is_absolute():
+            output_dir = _BASE_DIR / output_dir
         output_dir.mkdir(parents=True, exist_ok=True)
 
         name = getattr(config, "shift_display_name", "") or (config.display_name if config else "")

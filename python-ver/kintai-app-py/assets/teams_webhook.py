@@ -260,7 +260,7 @@ def _get_proxies(config) -> Optional[Dict[str, str]]:
 def _save_debug_json(payload: Dict[str, Any]) -> None:
     """デバッグ用にJSONを保存する"""
     try:
-        debug_dir = Path("timesheet")
+        debug_dir = Path(__file__).parent.parent / "timesheet"
         debug_dir.mkdir(exist_ok=True)
         with open(debug_dir / "teams_post_debug.json", "w", encoding="utf-8") as f:
             json.dump(payload, f, ensure_ascii=False, indent=2)

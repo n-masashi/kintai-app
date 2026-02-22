@@ -1,9 +1,13 @@
 """出勤形態タブ"""
+from pathlib import Path
+
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QListWidget, QLineEdit, QPushButton, QMessageBox
 )
 from PyQt5.QtCore import Qt
+
+_SETTINGS_JSON = Path(__file__).parent.parent.parent / "configs" / "settings.json"
 
 
 class ShiftTypeTab(QWidget):
@@ -83,7 +87,7 @@ class ShiftTypeTab(QWidget):
     def _sync(self) -> None:
         """設定ファイルに保存し、打刻タブのコンボボックスを更新する"""
         if self.config:
-            self.config.save("configs/settings.json")
+            self.config.save(str(_SETTINGS_JSON))
         if self.attendance_tab_ref:
             shift_types = self.config.shift_types if self.config else []
             self.attendance_tab_ref.update_shift_types(shift_types)

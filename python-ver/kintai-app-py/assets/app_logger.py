@@ -3,7 +3,7 @@ import logging
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
-_LOG_DIR  = Path("assets/logs")
+_LOG_DIR  = Path(__file__).parent / "logs"
 _LOG_FILE = _LOG_DIR / "app.log"
 _MAX_BYTES    = 250 * 1024  # 250KB
 _BACKUP_COUNT = 3
