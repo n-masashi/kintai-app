@@ -114,7 +114,7 @@ def main() -> None:
     _setup_font(app)
 
     # 設定読込
-    settings_path = Path("configs/settings.json")
+    settings_path = Path(__file__).parent / "configs" / "settings.json"
     config = Config.load(str(settings_path))
 
     # テスト日付オーバーライド（settings.json の test_date が優先、環境変数で上書きもできる）
