@@ -19,6 +19,7 @@
 10. [エラー一覧](#10-エラー一覧)
 11. [ログ仕様](#11-ログ仕様)
 12. [定数一覧](#12-定数一覧)
+13. [テスト](#13-テスト)
 
 ---
 
@@ -642,3 +643,25 @@ assets/logs/app.log.3      # 3世代前
 | 振休 | シフト休 | なし | なし | ダイアログ入力値 |
 | 1.0日有給 | 1.0日有給 | なし | なし | ダイアログ入力値 |
 | 0.5日有給 | 0.5日有給 | ダイアログ入力値 | ダイアログ入力値 | ダイアログ入力値 |
+
+---
+
+## 13. テスト
+
+### 実行方法
+
+```bash
+pip install pytest
+python -m pytest tests/ -v
+```
+
+### テストファイル構成
+
+| ファイル | テスト対象モジュール | 主なテスト内容 |
+|---|---|---|
+| `tests/test_helpers.py` | `timesheet_helpers` | 時刻丸め・Excel シリアル値・祝日計算・遅刻判定・ファイル検索 |
+| `tests/test_config.py` | `config` | 設定の読込・保存・デフォルト値・マイグレーション |
+| `tests/test_actions.py` | `timesheet_actions` | 出退勤ロジック・CSV 出力・Excel 書込・一括記入 |
+| `tests/test_webhook.py` | `teams_webhook` | Teams ペイロード構築・メンション解決・POST 呼出 |
+| `tests/test_logger.py` | `app_logger` | ログ設定・ハンドラー多重追加防止 |
+| `tests/conftest.py` | — | 共通フィクスチャ（`base_config` 等） |
