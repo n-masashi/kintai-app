@@ -2,7 +2,7 @@
 from pathlib import Path
 
 from PyQt5.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QGroupBox,
+    QWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QGridLayout, QGroupBox,
     QPushButton, QLineEdit, QComboBox, QLabel,
     QTableWidget, QTableWidgetItem, QHeaderView, QScrollArea,
     QFileDialog, QMessageBox, QFrame
@@ -162,6 +162,43 @@ class SettingsTab(QWidget):
         theme_layout.addStretch()
         main_layout.addWidget(theme_group)
 
+        # ── タイムシート列設定 ──
+        layout_group = QGroupBox("タイムシート列設定")
+        layout_vbox = QVBoxLayout(layout_group)
+        layout_vbox.setSpacing(8)
+
+        warn_label = QLabel("※ タイムシートの書式変更がない限り、基本的に変更不要です")
+        warn_label.setStyleSheet("color: orange; font-size: 11px;")
+        layout_vbox.addWidget(warn_label)
+
+        grid = QGridLayout()
+        grid.setHorizontalSpacing(12)
+        grid.setVerticalSpacing(4)
+
+        _items = [
+            ("年セル",     "ts_year_cell_edit",       "(例) C6"),
+            ("月セル",     "ts_month_cell_edit",      "(例) C7"),
+            ("日付列",     "ts_date_col_edit",        "(例) C"),
+            ("出勤形態列", "ts_shift_type_col_edit",  "(例) E"),
+            ("始業時刻列", "ts_start_time_col_edit",  "(例) F"),
+            ("終業時刻列", "ts_end_time_col_edit",    "(例) G"),
+            ("残業種別列", "ts_overtime_type_col_edit","(例) K"),
+            ("備考列",     "ts_remark_col_edit",      "(例) L"),
+        ]
+        for i, (label_text, attr, placeholder) in enumerate(_items):
+            col = i % 4
+            row_base = (i // 4) * 2
+            lbl = QLabel(label_text)
+            lbl.setAlignment(Qt.AlignCenter)
+            edit = QLineEdit()
+            edit.setPlaceholderText(placeholder)
+            setattr(self, attr, edit)
+            grid.addWidget(lbl, row_base, col)
+            grid.addWidget(edit, row_base + 1, col)
+
+        layout_vbox.addLayout(grid)
+        main_layout.addWidget(layout_group)
+
         # ── 保存ボタン ──
         save_btn = QPushButton("設定を保存")
         save_btn.setMinimumHeight(38)
@@ -235,6 +272,17 @@ class SettingsTab(QWidget):
             self.managers_table.setItem(row, 0, QTableWidgetItem(mgr.get("name", "")))
             self.managers_table.setItem(row, 1, QTableWidgetItem(mgr.get("teams_id", "")))
 
+        # タイムシート列設定
+        layout = getattr(self.config, 'timesheet_layout', {})
+        self.ts_year_cell_edit.setText(layout.get("year_cell", "C6"))
+        self.ts_month_cell_edit.setText(layout.get("month_cell", "C7"))
+        self.ts_date_col_edit.setText(layout.get("date_col", "C"))
+        self.ts_shift_type_col_edit.setText(layout.get("shift_type_col", "E"))
+        self.ts_start_time_col_edit.setText(layout.get("start_time_col", "F"))
+        self.ts_end_time_col_edit.setText(layout.get("end_time_col", "G"))
+        self.ts_overtime_type_col_edit.setText(layout.get("overtime_type_col", "K"))
+        self.ts_remark_col_edit.setText(layout.get("remark_col", "L"))
+
     def save_settings(self) -> None:
         """ウィジェットの値を設定に保存する"""
         if not self.config:
@@ -260,6 +308,18 @@ class SettingsTab(QWidget):
             if name or teams_id:
                 managers.append({"name": name, "teams_id": teams_id})
         self.config.managers = managers
+
+        # タイムシート列設定
+        self.config.timesheet_layout = {
+            "year_cell":          self.ts_year_cell_edit.text().strip() or "C6",
+            "month_cell":         self.ts_month_cell_edit.text().strip() or "C7",
+            "date_col":           self.ts_date_col_edit.text().strip().upper() or "C",
+            "shift_type_col":     self.ts_shift_type_col_edit.text().strip().upper() or "E",
+            "start_time_col":     self.ts_start_time_col_edit.text().strip().upper() or "F",
+            "end_time_col":       self.ts_end_time_col_edit.text().strip().upper() or "G",
+            "overtime_type_col":  self.ts_overtime_type_col_edit.text().strip().upper() or "K",
+            "remark_col":         self.ts_remark_col_edit.text().strip().upper() or "L",
+        }
 
         self.config.save(str(_SETTINGS_JSON))
 

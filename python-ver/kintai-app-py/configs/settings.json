@@ -24,5 +24,15 @@
   "managers": [
   ],
   "proxy_sh": "",
-  "test_date": ""
+  "test_date": "",
+  "timesheet_layout": {
+    "year_cell": "C6",
+    "month_cell": "C7",
+    "date_col": "C",
+    "shift_type_col": "E",
+    "start_time_col": "F",
+    "end_time_col": "G",
+    "overtime_type_col": "K",
+    "remark_col": "L"
+  }
 }

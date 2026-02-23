@@ -6,6 +6,15 @@ from pathlib import Path
 from typing import Optional, Set
 
 
+def col_letter_to_num(col: str) -> int:
+    """Excelの列文字を列番号に変換する。例: A→1, C→3, L→12"""
+    col = col.upper().strip()
+    result = 0
+    for ch in col:
+        result = result * 26 + (ord(ch) - ord('A') + 1)
+    return result
+
+
 def get_now() -> datetime:
     """現在日時を返す。環境変数 KINTAI_TEST_DATE (YYYY-MM-DD) が設定されている場合は
     その日付に実時刻を組み合わせて返す（テスト用）。"""
@@ -223,19 +232,19 @@ def format_date_jp(d: date) -> str:
     return f"{d.year}年{d.month:02d}月{d.day:02d}日（{weekdays[d.weekday()]}）"
 
 
-def get_row_for_date(ws, target_day: int) -> Optional[int]:
+def get_row_for_date(ws, target_day: int, date_col: int = 3) -> Optional[int]:
     """
-    C列(3列目)を18行目〜48行目まで走査し、
+    date_col列を18行目〜48行目まで走査し、
     target_day（日の数値）に一致する行番号を返す。
     見つからない場合はNoneを返す。
 
-    28日以前: C列の数値と直接照合（行位置に依存しない）
+    28日以前: 日付列の数値と直接照合（行位置に依存しない）
     29〜31日: 28日の行を基準に +1/+2/+3 行で特定
     """
     # まず28日の行を探す（29〜31日の基準になる）
     row_28 = None
     for row_num in range(18, 49):
-        val = ws.cell(row=row_num, column=3).value
+        val = ws.cell(row=row_num, column=date_col).value
         try:
             if int(val) == 28:
                 row_28 = row_num
@@ -245,7 +254,7 @@ def get_row_for_date(ws, target_day: int) -> Optional[int]:
 
     if target_day <= 28:
         for row_num in range(18, 49):
-            val = ws.cell(row=row_num, column=3).value
+            val = ws.cell(row=row_num, column=date_col).value
             try:
                 if int(val) == target_day:
                     return row_num

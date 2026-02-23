@@ -21,6 +21,16 @@ class Config:
         "managers": [],
         "proxy_sh": "",
         "test_date": "",  # テスト用日付オーバーライド (YYYY-MM-DD)。空文字で無効
+        "timesheet_layout": {
+            "year_cell": "C6",
+            "month_cell": "C7",
+            "date_col": "C",
+            "shift_type_col": "E",
+            "start_time_col": "F",
+            "end_time_col": "G",
+            "overtime_type_col": "K",
+            "remark_col": "L",
+        },
     }
 
     def __init__(self, data: Dict[str, Any] = None):
@@ -38,6 +48,8 @@ class Config:
         self.managers: List[Dict[str, str]] = d.get("managers", list(self.DEFAULTS["managers"]))
         self.proxy_sh: str = d.get("proxy_sh", self.DEFAULTS["proxy_sh"])
         self.test_date: str = d.get("test_date", self.DEFAULTS["test_date"])
+        _default_layout = dict(self.DEFAULTS["timesheet_layout"])
+        self.timesheet_layout: Dict[str, str] = {**_default_layout, **d.get("timesheet_layout", {})}
 
     @classmethod
     def load(cls, path: str = "settings.json") -> "Config":
@@ -75,4 +87,5 @@ class Config:
             "managers": self.managers,
             "proxy_sh": self.proxy_sh,
             "test_date": self.test_date,
+            "timesheet_layout": self.timesheet_layout,
         }

@@ -24,7 +24,7 @@ from assets.timesheet_constants import (
 )
 from assets.timesheet_helpers import (
     round_time, round_time_night_shift, time_to_excel_serial, find_timesheet,
-    is_late, format_date_jp, get_row_for_date, get_now, get_today
+    is_late, format_date_jp, get_row_for_date, get_now, get_today, col_letter_to_num
 )
 
 
@@ -233,7 +233,7 @@ def clock_in(
         # Excel書込（エラーは呼び出し元に伝播させてダイアログ表示）
         xlsx_path = _find_xlsx_or_raise(config, target_date)
         if xlsx_path:
-            write_to_excel(xlsx_path, row_data)
+            write_to_excel(xlsx_path, row_data, config)
 
         _log.info("clock_in 完了: date=%s shift=%s teams_error=%s", target_date, shift, teams_error or "なし")
         return True, teams_error
@@ -292,19 +292,22 @@ def clock_out(
         else:
             end_serial = time_to_excel_serial(rounded_dt.hour, rounded_dt.minute)
 
-        # 残業判定: F列(始業時刻)を読み取り G列との差分で9h超を判定
+        # 残業判定: 始業時刻列を読み取り 終業時刻との差分で9h超を判定
         overtime_type = None
         xlsx_path = _find_xlsx_or_raise(config, target_date)
         if xlsx_path and OPENPYXL_AVAILABLE:
             try:
+                _layout = getattr(config, 'timesheet_layout', {})
+                _date_col = col_letter_to_num(_layout.get("date_col", "C"))
+                _start_col = col_letter_to_num(_layout.get("start_time_col", "F"))
                 wb_check = openpyxl.load_workbook(str(xlsx_path))
                 ws_check = wb_check.active
-                row_num_check = get_row_for_date(ws_check, target_date.day)
+                row_num_check = get_row_for_date(ws_check, target_date.day, _date_col)
                 if row_num_check is None:
                     raise TimesheetWriteError(
                         f"「{xlsx_path.name}」に{target_date.month}月{target_date.day}日の行を認識できませんでした。"
                     )
-                start_value = ws_check.cell(row=row_num_check, column=6).value
+                start_value = ws_check.cell(row=row_num_check, column=_start_col).value
                 if start_value is None or start_value == "":
                     # 始業時間が記載されていない場合はエラー
                     raise TimesheetWriteError("始業時間が記載されていません。先に出勤を記録してください。")
@@ -364,7 +367,7 @@ def clock_out(
 
         # Excel書込（エラーは呼び出し元に伝播させてダイアログ表示）
         if xlsx_path:
-            write_to_excel(xlsx_path, row_data)
+            write_to_excel(xlsx_path, row_data, config)
 
         _log.info("clock_out 完了: date=%s shift=%s overtime=%s teams_error=%s",
                   target_date, shift, overtime_type or "なし", teams_error or "なし")
@@ -478,7 +481,7 @@ def batch_write(
             try:
                 xlsx_path = _find_xlsx_or_raise(config, d)
                 if xlsx_path:
-                    write_to_excel(xlsx_path, row_data)
+                    write_to_excel(xlsx_path, row_data, config)
             except TimesheetNotFoundError as e:
                 _log.warning("batch_write タイムシート未検出: date=%s %s", d, e)
                 status_cb(
@@ -511,53 +514,62 @@ def batch_write(
     return success_count, fail_count
 
 
-def write_to_excel(xlsx_path: Path, row_data: dict) -> bool:
+def write_to_excel(xlsx_path: Path, row_data: dict, config=None) -> bool:
     """
     openpyxl で Excel に書込む。
-    C列を走査して target_day に一致する行を特定し、各列に値を書込む。
+    日付列を走査して target_day に一致する行を特定し、各列に値を書込む。
+    列位置は config.timesheet_layout から取得する（未設定時はデフォルト値を使用）。
 
     row_data keys:
       - date: date (対象日)
-      - shift_label: str or None (E列: 就労テキスト "日勤","遅刻" 等)
-      - start_time: float or None (F列: 始業Excelシリアル値)
-      - end_time: float or None (G列: 終業Excelシリアル値)
-      - overtime_type: str or None (K列: 残業種別 "客先指示" 等)
-      - remark: str or None (L列: 備考)
+      - shift_label: str or None (出勤形態テキスト "日勤","遅刻" 等)
+      - start_time: float or None (始業Excelシリアル値)
+      - end_time: float or None (終業Excelシリアル値)
+      - overtime_type: str or None (残業種別 "客先指示" 等)
+      - remark: str or None (備考)
     """
     if not OPENPYXL_AVAILABLE:
         return False
 
     try:
+        _layout = getattr(config, 'timesheet_layout', {}) if config else {}
+        date_col          = col_letter_to_num(_layout.get("date_col",          "C"))
+        shift_type_col    = col_letter_to_num(_layout.get("shift_type_col",    "E"))
+        start_time_col    = col_letter_to_num(_layout.get("start_time_col",    "F"))
+        end_time_col      = col_letter_to_num(_layout.get("end_time_col",      "G"))
+        overtime_type_col = col_letter_to_num(_layout.get("overtime_type_col", "K"))
+        remark_col        = col_letter_to_num(_layout.get("remark_col",        "L"))
+
         target_date = row_data["date"]
 
         wb = openpyxl.load_workbook(str(xlsx_path))
         ws = wb.active
 
-        row_num = get_row_for_date(ws, target_date.day)
+        row_num = get_row_for_date(ws, target_date.day, date_col)
         if row_num is None:
             raise TimesheetWriteError(
                 f"「{xlsx_path.name}」に{target_date.month}月{target_date.day}日の行を認識できませんでした。"
             )
 
-        # E列(5): 就労（出勤形態テキスト）
+        # 出勤形態
         if row_data.get("shift_label") is not None:
-            ws.cell(row=row_num, column=5).value = row_data["shift_label"]
+            ws.cell(row=row_num, column=shift_type_col).value = row_data["shift_label"]
 
-        # F列(6): 始業時刻（Excelシリアル値）
+        # 始業時刻（Excelシリアル値）
         if row_data.get("start_time") is not None:
-            ws.cell(row=row_num, column=6).value = row_data["start_time"]
+            ws.cell(row=row_num, column=start_time_col).value = row_data["start_time"]
 
-        # G列(7): 終業時刻（Excelシリアル値）
+        # 終業時刻（Excelシリアル値）
         if row_data.get("end_time") is not None:
-            ws.cell(row=row_num, column=7).value = row_data["end_time"]
+            ws.cell(row=row_num, column=end_time_col).value = row_data["end_time"]
 
-        # K列(11): 残業種別
+        # 残業種別
         if row_data.get("overtime_type") is not None:
-            ws.cell(row=row_num, column=11).value = row_data["overtime_type"]
+            ws.cell(row=row_num, column=overtime_type_col).value = row_data["overtime_type"]
 
-        # L列(12): 備考
+        # 備考
         if row_data.get("remark") is not None:
-            ws.cell(row=row_num, column=12).value = row_data["remark"]
+            ws.cell(row=row_num, column=remark_col).value = row_data["remark"]
 
         wb.save(str(xlsx_path))
         _log.debug("write_to_excel 完了: file=%s date=%s row=%d", xlsx_path.name, target_date, row_num)

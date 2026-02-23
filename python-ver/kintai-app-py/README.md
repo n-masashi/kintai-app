@@ -1,7 +1,7 @@
 # 勤怠打刻アプリ 詳細設計書
 
-- **バージョン**: v3.0.0
-- **最終更新**: 2026-02-22
+- **バージョン**: v3.1.0
+- **最終更新**: 2026-02-23
 
 ---
 
@@ -153,6 +153,20 @@ kintai-app-py/
 | `managers` | List[Dict] | `[]` | 管理職情報。`{"name": str, "teams_id": str}` の配列 |
 | `proxy_sh` | str | `""` | プロキシ設定シェルスクリプトのパス |
 | `test_date` | str | `""` | テスト用日付オーバーライド（`YYYY-MM-DD`）。空文字で無効 |
+| `timesheet_layout` | Dict[str, str] | 下表参照 | タイムシートのセル・列位置設定 |
+
+##### `timesheet_layout` 内キー一覧
+
+| キー | デフォルト | 説明 |
+|---|---|---|
+| `year_cell` | `"C6"` | 年（YYYY）が入力されているセルアドレス |
+| `month_cell` | `"C7"` | 月（MM）が入力されているセルアドレス |
+| `date_col` | `"C"` | 日付が入力されている列（列文字） |
+| `shift_type_col` | `"E"` | 出勤形態を書き込む列 |
+| `start_time_col` | `"F"` | 始業時刻を書き込む列 |
+| `end_time_col` | `"G"` | 終業時刻を書き込む列 |
+| `overtime_type_col` | `"K"` | 残業種別を書き込む列 |
+| `remark_col` | `"L"` | 備考を書き込む列 |
 
 ---
 
@@ -191,7 +205,8 @@ kintai-app-py/
 | `find_timesheet()` | `(folder, display_name, year, month) -> Optional[Path]` | フォルダ内から `{YYYYMM}{display_name}.xlsx` を検索して返す |
 | `is_late()` | `(shift, now) -> bool` | 出勤形態と現在時刻を比較して遅刻かどうか判定。`LATE_MARGIN_MIN` 分超過で遅刻 |
 | `format_date_jp()` | `(d) -> str` | `date` を `"2025年01月15日（火）"` 形式にフォーマット |
-| `get_row_for_date()` | `(ws, target_day) -> Optional[int]` | C 列を走査して対象日の行番号を返す。29〜31 日は 28 日行の +offset で特定 |
+| `get_row_for_date()` | `(ws, target_day, date_col=3) -> Optional[int]` | 指定列を走査して対象日の行番号を返す。29〜31 日は 28 日行の +offset で特定。`date_col` は `config.timesheet_layout["date_col"]` を `col_letter_to_num()` で変換した値を渡す |
+| `col_letter_to_num()` | `(col: str) -> int` | Excel 列文字を列番号に変換する。例: `"A"` → 1、`"C"` → 3、`"L"` → 12 |
 
 #### テスト日付オーバーライドの仕組み
 
@@ -223,7 +238,7 @@ get_now() / get_today() が参照
 | `clock_in()` | `tuple[bool, str]` | 出勤処理。処理順: row_data 構築 → CSV 出力 → Teams 投稿 → Excel 書込。戻り値は `(成功フラグ, teams_error)` |
 | `clock_out()` | `tuple[bool, str]` | 退勤処理。処理順: ターゲット日付決定 → 時刻丸め → 残業判定 → Teams 投稿 → Excel 書込。戻り値は `(成功フラグ, teams_error)` |
 | `batch_write()` | `tuple[int, int]` | 複数日付の一括記入。日付ごとにループし書込失敗は個別スキップ。戻り値は `(成功件数, 失敗件数)` |
-| `write_to_excel()` | `bool` | openpyxl で .xlsx に書込む。`get_row_for_date()` で対象行を特定し E/F/G/K/L 列に書込 |
+| `write_to_excel()` | `bool` | openpyxl で .xlsx に書込む。`get_row_for_date()` で対象行を特定し各列に書込。列位置は `config.timesheet_layout` から取得（`config=None` 時はデフォルト値） |
 | `output_csv()` | `None` | `{shift_display_name}.csv` を上書き出力（UTF-8 BOM なし）。詳細は下表参照 |
 | `_find_xlsx_or_raise()` | `Path` | タイムシート検索。未設定・未検出は `TimesheetNotFoundError` を raise |
 
@@ -285,6 +300,23 @@ get_now() / get_today() が参照
 | `load_from_config()` | `Config` オブジェクトの値を各 Widget に反映する |
 | `save_settings()` | 各 Widget の値を `Config` に書き戻し `configs/settings.json` に保存 |
 | `_on_theme_changed()` | テーマ変更を即時反映（`MainWindow.apply_theme()` を呼ぶ） |
+
+#### タイムシート列設定グループボックス
+
+設定タブ下部に **「タイムシート列設定」** グループボックスを追加。タイムシートの書式変更（列の移動等）に備え、各セル・列位置を GUI から変更できる。
+
+| 入力欄 | 対応 JSON キー | 入力形式 | デフォルト |
+|---|---|---|---|
+| 年（YYYY）セル | `year_cell` | セルアドレス（例: `C6`） | `C6` |
+| 月（MM）セル | `month_cell` | セルアドレス（例: `C7`） | `C7` |
+| 日付列 | `date_col` | 列文字（例: `C`） | `C` |
+| 出勤形態列 | `shift_type_col` | 列文字（例: `E`） | `E` |
+| 始業時刻列 | `start_time_col` | 列文字（例: `F`） | `F` |
+| 終業時刻列 | `end_time_col` | 列文字（例: `G`） | `G` |
+| 残業種別列 | `overtime_type_col` | 列文字（例: `K`） | `K` |
+| 備考列 | `remark_col` | 列文字（例: `L`） | `L` |
+
+> 列文字は小文字でも入力可。保存時に自動で大文字に変換される。
 
 ---
 
@@ -506,7 +538,17 @@ sequenceDiagram
     { "name": "鈴木部長", "teams_id": "suzuki@example.com" }
   ],
   "proxy_sh": "/path/to/proxy.sh",
-  "test_date": ""
+  "test_date": "",
+  "timesheet_layout": {
+    "year_cell": "C6",
+    "month_cell": "C7",
+    "date_col": "C",
+    "shift_type_col": "E",
+    "start_time_col": "F",
+    "end_time_col": "G",
+    "overtime_type_col": "K",
+    "remark_col": "L"
+  }
 }
 ```
 
@@ -532,20 +574,26 @@ sequenceDiagram
 
 ### 書込列
 
-| 列 | Excel 列 | 内容 |
+書込先の列は `config.timesheet_layout` から動的に取得する。デフォルト値は以下の通り。
+
+| 設定キー | デフォルト列 | 内容 |
 |---|---|---|
-| E (5列目) | 就労テキスト | `"日勤"` / `"遅刻"` / `"シフト休"` 等 |
-| F (6列目) | 始業時刻 | Excel シリアル値（小数） |
-| G (7列目) | 終業時刻 | Excel シリアル値（小数）。24h 超えも可 |
-| K (11列目) | 残業種別 | `"客先指示"` 等 |
-| L (12列目) | 備考 | 遅刻理由・有給詳細・コメント 等 |
+| `shift_type_col` | E (5列目) | 就労テキスト（`"日勤"` / `"遅刻"` / `"シフト休"` 等） |
+| `start_time_col` | F (6列目) | 始業時刻（Excel シリアル値） |
+| `end_time_col` | G (7列目) | 終業時刻（Excel シリアル値。24h 超えも可） |
+| `overtime_type_col` | K (11列目) | 残業種別（`"客先指示"` 等） |
+| `remark_col` | L (12列目) | 備考（遅刻理由・有給詳細・コメント 等） |
+
+タイムシートの書式変更で列がズレた場合は、設定タブの「タイムシート列設定」で列文字を変更して保存することで対応できる。
 
 ### 対象行の特定（`get_row_for_date`）
 
-- C 列（3 列目）の 18〜48 行目を走査
-- **1〜28 日**: C 列の数値と直接照合
+- `date_col`（デフォルト: C 列 = 3）の 18〜48 行目を走査
+- **1〜28 日**: 日付列の数値と直接照合（行位置に依存しない探索）
 - **29〜31 日**: 28 日の行番号 + offset（29→+1, 30→+2, 31→+3）
-  - 29〜31 日の C 列は Excel 数式（`=IF(MONTH(...),29)` 等）のため数値照合不可
+  - 29〜31 日の日付列は Excel 数式（`=IF(MONTH(...),29)` 等）のため数値照合不可
+
+> 日付検索は探索方式のため、行がズレても日付列さえ正しければ動作する。
 
 ---
 
@@ -808,6 +856,15 @@ python -m pytest tests/ -v
 | `test_day_31` | 31日 → 28日行 +3 |
 | `test_day_not_found` | 該当日なし → None |
 | `test_non_numeric_cell_skipped` | 文字列セルは無視して正しい行を返す |
+| `test_custom_date_col` | `date_col` 引数に別の列番号を渡すと指定列を参照する |
+
+**TestColLetterToNum** — `col_letter_to_num()` 列文字→列番号変換
+
+| テスト関数 | 確認内容 |
+|---|---|
+| `test_single_letters` | A→1, C→3, E→5, F→6, G→7, K→11, L→12, Z→26 |
+| `test_lowercase_accepted` | 小文字でも正しく変換される |
+| `test_with_whitespace` | 前後の空白は無視される |
 
 ---
 
@@ -847,8 +904,17 @@ python -m pytest tests/ -v
 
 | テスト関数 | 確認内容 |
 |---|---|
-| `test_to_dict_keys` | 期待するキーがすべて含まれる |
+| `test_to_dict_keys` | 期待するキーがすべて含まれる（`timesheet_layout` を含む） |
 | `test_to_dict_values_match` | フィールドの値が正しく反映される |
+
+**TestTimesheetLayout** — `timesheet_layout` 設定の読み書き
+
+| テスト関数 | 確認内容 |
+|---|---|
+| `test_default_layout` | デフォルト値が全キー正しく設定されている |
+| `test_load_custom_layout` | JSON に書かれた値が読み込まれる |
+| `test_partial_layout_fills_defaults` | 一部のみ上書きしても残りはデフォルト値で補完される |
+| `test_layout_roundtrip` | 保存 → 再読み込みで値が保持される |
 
 ---
 
