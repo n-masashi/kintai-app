@@ -16,6 +16,7 @@ from assets.timesheet_helpers import (
     get_row_for_date,
     get_now,
     get_today,
+    col_letter_to_num,
 )
 
 
@@ -364,3 +365,38 @@ class TestGetRowForDate:
         day_map = {18: "合計", 19: 1}
         ws = _make_ws(day_map)
         assert get_row_for_date(ws, 1) == 19
+
+    def test_custom_date_col(self):
+        """date_col を変えると指定列を読みにいく"""
+        ws = MagicMock()
+        def cell_side_effect(row, column):
+            c = MagicMock()
+            # B列(2)に日付を入れたタイムシートを想定
+            c.value = {18: 1, 19: 2}.get(row) if column == 2 else None
+            return c
+        ws.cell.side_effect = cell_side_effect
+        assert get_row_for_date(ws, 1, date_col=2) == 18
+        assert get_row_for_date(ws, 2, date_col=2) == 19
+
+
+# ─────────────────────────── col_letter_to_num ───────────────────────────
+
+class TestColLetterToNum:
+    def test_single_letters(self):
+        assert col_letter_to_num("A") == 1
+        assert col_letter_to_num("C") == 3
+        assert col_letter_to_num("E") == 5
+        assert col_letter_to_num("F") == 6
+        assert col_letter_to_num("G") == 7
+        assert col_letter_to_num("K") == 11
+        assert col_letter_to_num("L") == 12
+        assert col_letter_to_num("Z") == 26
+
+    def test_lowercase_accepted(self):
+        """小文字でも正しく変換される"""
+        assert col_letter_to_num("c") == 3
+        assert col_letter_to_num("l") == 12
+
+    def test_with_whitespace(self):
+        """前後の空白は無視される"""
+        assert col_letter_to_num("  C  ") == 3

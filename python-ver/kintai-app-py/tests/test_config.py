@@ -117,6 +117,7 @@ class TestConfigToDict:
             "ad_name", "display_name", "teams_user_id", "shift_display_name",
             "timesheet_display_name", "webhook_url", "timesheet_folder",
             "output_folder", "theme", "shift_types", "managers", "proxy_sh", "test_date",
+            "timesheet_layout",
         }
         assert expected_keys == set(d.keys())
 
@@ -127,3 +128,46 @@ class TestConfigToDict:
         d = c.to_dict()
         assert d["display_name"] == "テスト"
         assert d["theme"] == "dark"
+
+
+class TestTimesheetLayout:
+    def test_default_layout(self):
+        """デフォルト値が正しく設定されている"""
+        layout = Config().timesheet_layout
+        assert layout["year_cell"] == "C6"
+        assert layout["month_cell"] == "C7"
+        assert layout["date_col"] == "C"
+        assert layout["shift_type_col"] == "E"
+        assert layout["start_time_col"] == "F"
+        assert layout["end_time_col"] == "G"
+        assert layout["overtime_type_col"] == "K"
+        assert layout["remark_col"] == "L"
+
+    def test_load_custom_layout(self, tmp_path):
+        """JSONに書かれた値が読み込まれる"""
+        data = {"timesheet_layout": {"date_col": "B", "remark_col": "M"}}
+        p = tmp_path / "settings.json"
+        p.write_text(json.dumps(data), encoding="utf-8")
+        c = Config.load(str(p))
+        assert c.timesheet_layout["date_col"] == "B"
+        assert c.timesheet_layout["remark_col"] == "M"
+
+    def test_partial_layout_fills_defaults(self, tmp_path):
+        """一部だけ上書きしても残りはデフォルト値が補完される"""
+        data = {"timesheet_layout": {"date_col": "D"}}
+        p = tmp_path / "settings.json"
+        p.write_text(json.dumps(data), encoding="utf-8")
+        c = Config.load(str(p))
+        assert c.timesheet_layout["date_col"] == "D"
+        assert c.timesheet_layout["shift_type_col"] == "E"  # デフォルト維持
+
+    def test_layout_roundtrip(self, tmp_path):
+        """保存→再読み込みで値が保持される"""
+        p = tmp_path / "settings.json"
+        c = Config()
+        c.timesheet_layout["date_col"] = "B"
+        c.timesheet_layout["remark_col"] = "N"
+        c.save(str(p))
+        c2 = Config.load(str(p))
+        assert c2.timesheet_layout["date_col"] == "B"
+        assert c2.timesheet_layout["remark_col"] == "N"

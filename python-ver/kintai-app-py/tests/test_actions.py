@@ -8,7 +8,7 @@ from assets.timesheet_helpers import time_to_excel_serial
 from assets.timesheet_actions import (
     clock_in, clock_out, batch_write, output_csv, write_to_excel,
     TimesheetNotFoundError, TimesheetLockedError, TimesheetWriteError,
-    UnknownShiftTypeError,
+    UnknownShiftTypeError, verify_timesheet_header,
 )
 
 
@@ -247,14 +247,14 @@ class TestClockOutTargetAndSerial:
 
 class TestClockIn:
     def _run_clock_in(self, shift, is_assumed=False, now_dt=None,
-                      late_reason_cb=None, half_day_cb=None, remark_cb=None,
+                      late_reason_cb=None, custom_input_cb=None, remark_cb=None,
                       base_config=None):
         if now_dt is None:
             now_dt = datetime(2026, 2, 21, 10, 0)
         if late_reason_cb is None:
             late_reason_cb = lambda: None
-        if half_day_cb is None:
-            half_day_cb = lambda: None
+        if custom_input_cb is None:
+            custom_input_cb = lambda: None
         if remark_cb is None:
             remark_cb = lambda title="": None
 
@@ -275,7 +275,7 @@ class TestClockIn:
                 is_assumed=is_assumed,
                 no_post=True,
                 late_reason_cb=late_reason_cb,
-                half_day_cb=half_day_cb,
+                custom_input_cb=custom_input_cb,
                 remark_cb=remark_cb,
                 status_cb=_noop_status,
             )
@@ -367,8 +367,8 @@ class TestClockIn:
         )
         assert ok is False
 
-    def test_half_day_paid(self, base_config):
-        """0.5日有給 → half_day_cb の値を使う"""
+    def test_custom_input(self, base_config):
+        """0.5日有給 → custom_input_cb の値を使う"""
         from unittest.mock import MagicMock
         start_q = MagicMock()
         start_q.hour.return_value = 9
@@ -379,7 +379,7 @@ class TestClockIn:
 
         ok, row = self._run_clock_in(
             "0.5日有給",
-            half_day_cb=lambda: {"start": start_q, "end": end_q, "remark": ""},
+            custom_input_cb=lambda: {"start": start_q, "end": end_q, "remark": ""},
             base_config=base_config,
         )
         assert ok
@@ -405,7 +405,7 @@ class TestClockIn:
                     is_assumed=False,
                     no_post=True,
                     late_reason_cb=lambda: None,
-                    half_day_cb=lambda: None,
+                    custom_input_cb=lambda: None,
                     remark_cb=lambda title="": None,
                     status_cb=_noop_status,
                 )
@@ -415,9 +415,9 @@ class TestClockIn:
 
 class TestBatchWrite:
     def _run_batch(self, dates, shift, base_config,
-                   half_day_cb=None, remark_cb=None):
-        if half_day_cb is None:
-            half_day_cb = lambda: None
+                   custom_input_cb=None, remark_cb=None):
+        if custom_input_cb is None:
+            custom_input_cb = lambda: None
         if remark_cb is None:
             remark_cb = lambda title="": None
 
@@ -429,7 +429,7 @@ class TestBatchWrite:
                 dates=dates,
                 shift=shift,
                 work_style="リモート",
-                half_day_cb=half_day_cb,
+                custom_input_cb=custom_input_cb,
                 remark_cb=remark_cb,
                 status_cb=_noop_status,
             )
@@ -458,7 +458,7 @@ class TestBatchWrite:
                 dates=dates,
                 shift="日勤",
                 work_style="リモート",
-                half_day_cb=lambda: None,
+                custom_input_cb=lambda: None,
                 remark_cb=lambda title="": None,
                 status_cb=_noop_status,
             )
@@ -508,3 +508,107 @@ class TestFindXlsxOrRaise:
         (tmp_path / "202602山田.xlsx").touch()
         result = _find_xlsx_or_raise(base_config, date(2026, 2, 21))
         assert result.name == "202602山田.xlsx"
+
+
+# ────────── verify_timesheet_header ──────────
+
+def _make_ws_with_header(year_val, month_val):
+    """年・月セルに指定値を返すワークシートモックを生成する"""
+    ws = MagicMock()
+    def _cell_val(cell_addr):
+        cell = MagicMock()
+        cell.value = year_val if cell_addr == "C6" else month_val
+        return cell
+    ws.__getitem__ = MagicMock(side_effect=_cell_val)
+    wb = MagicMock()
+    wb.active = ws
+    return wb
+
+
+class TestVerifyTimesheetHeader:
+    def test_match_returns_none(self, tmp_path, base_config):
+        """年月が一致 → None を返す"""
+        base_config.timesheet_folder = str(tmp_path)
+        base_config.timesheet_display_name = "山田"
+        (tmp_path / "202602山田.xlsx").touch()
+        wb = _make_ws_with_header(2026, 2)
+        with patch("assets.timesheet_actions.openpyxl.load_workbook", return_value=wb):
+            result = verify_timesheet_header(base_config, date(2026, 2, 10))
+        assert result is None
+
+    def test_year_mismatch_returns_message(self, tmp_path, base_config):
+        """年が不一致 → 警告メッセージ文字列を返す"""
+        base_config.timesheet_folder = str(tmp_path)
+        base_config.timesheet_display_name = "山田"
+        (tmp_path / "202602山田.xlsx").touch()
+        wb = _make_ws_with_header(2025, 2)
+        with patch("assets.timesheet_actions.openpyxl.load_workbook", return_value=wb):
+            result = verify_timesheet_header(base_config, date(2026, 2, 10))
+        assert result is not None
+        assert "2025" in result
+        assert "2026" in result
+        assert "このまま続行しますか？" in result
+
+    def test_month_mismatch_returns_message(self, tmp_path, base_config):
+        """月が不一致 → 警告メッセージ文字列を返す"""
+        base_config.timesheet_folder = str(tmp_path)
+        base_config.timesheet_display_name = "山田"
+        (tmp_path / "202602山田.xlsx").touch()
+        wb = _make_ws_with_header(2026, 1)
+        with patch("assets.timesheet_actions.openpyxl.load_workbook", return_value=wb):
+            result = verify_timesheet_header(base_config, date(2026, 2, 10))
+        assert result is not None
+        assert "1月" in result          # タイムシート内容の月
+        assert "2026/2" in result       # 打刻対象の年月
+        assert "打刻対象" in result
+
+    def test_month_zero_padding_treated_as_equal(self, tmp_path, base_config):
+        """セル値が文字列「02」でも int 変換して 2 月として一致判定する"""
+        base_config.timesheet_folder = str(tmp_path)
+        base_config.timesheet_display_name = "山田"
+        (tmp_path / "202602山田.xlsx").touch()
+        wb = _make_ws_with_header(2026, "02")
+        with patch("assets.timesheet_actions.openpyxl.load_workbook", return_value=wb):
+            result = verify_timesheet_header(base_config, date(2026, 2, 10))
+        assert result is None
+
+    def test_none_cell_value_warns(self, tmp_path, base_config):
+        """セル値が None（数式未解決など）→ (空) と表示した警告メッセージを返す"""
+        base_config.timesheet_folder = str(tmp_path)
+        base_config.timesheet_display_name = "山田"
+        (tmp_path / "202602山田.xlsx").touch()
+        wb = _make_ws_with_header(None, None)
+        with patch("assets.timesheet_actions.openpyxl.load_workbook", return_value=wb):
+            result = verify_timesheet_header(base_config, date(2026, 2, 10))
+        assert result is not None
+        assert "(空)" in result
+
+    def test_empty_string_cell_value_warns(self, tmp_path, base_config):
+        """セル値が空文字 → (空) と表示した警告メッセージを返す"""
+        base_config.timesheet_folder = str(tmp_path)
+        base_config.timesheet_display_name = "山田"
+        (tmp_path / "202602山田.xlsx").touch()
+        wb = _make_ws_with_header("", "")
+        with patch("assets.timesheet_actions.openpyxl.load_workbook", return_value=wb):
+            result = verify_timesheet_header(base_config, date(2026, 2, 10))
+        assert result is not None
+        assert "(空)" in result
+        assert "このまま続行しますか？" in result
+
+    def test_none_and_empty_mix_warns(self, tmp_path, base_config):
+        """年セルが None・月セルが空文字の混在 → 警告メッセージを返す"""
+        base_config.timesheet_folder = str(tmp_path)
+        base_config.timesheet_display_name = "山田"
+        (tmp_path / "202602山田.xlsx").touch()
+        wb = _make_ws_with_header(None, "")
+        with patch("assets.timesheet_actions.openpyxl.load_workbook", return_value=wb):
+            result = verify_timesheet_header(base_config, date(2026, 2, 10))
+        assert result is not None
+        assert "(空)" in result
+
+    def test_file_not_found_returns_none(self, tmp_path, base_config):
+        """ファイルが見つからない場合は None を返す（後続の書込でエラー処理）"""
+        base_config.timesheet_folder = str(tmp_path)
+        base_config.timesheet_display_name = "山田"
+        result = verify_timesheet_header(base_config, date(2026, 2, 10))
+        assert result is None
