@@ -1,4 +1,4 @@
-"""0.5日有給 時刻・備考入力ダイアログ"""
+"""カスタム入力（始業・終業時刻と備考）ダイアログ"""
 from PyQt5.QtWidgets import (
     QDialog, QVBoxLayout, QFormLayout, QLabel,
     QTimeEdit, QLineEdit, QDialogButtonBox, QWidget
@@ -6,12 +6,12 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt, QTime
 
 
-class HalfDayDialog(QDialog):
-    """0.5日有給の始業・終業時刻と備考を入力させるダイアログ"""
+class CustomInputDialog(QDialog):
+    """カスタム入力（始業・終業時刻と備考を入力させる）ダイアログ"""
 
-    def __init__(self, parent=None):
+    def __init__(self, shift_label: str = "0.5日有給", parent=None):
         super().__init__(parent)
-        self.setWindowTitle("0.5日有給 時刻入力")
+        self.setWindowTitle(f"{shift_label} 時刻入力")
         self.setMinimumWidth(350)
         self.setWindowFlags(self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
 
@@ -19,7 +19,7 @@ class HalfDayDialog(QDialog):
         layout.setSpacing(10)
         layout.setContentsMargins(16, 16, 16, 16)
 
-        title_label = QLabel("0.5日有給の時刻と備考を入力してください。")
+        title_label = QLabel(f"{shift_label}の時刻と備考を入力してください。")
         layout.addWidget(title_label)
 
         form = QFormLayout()
