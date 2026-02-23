@@ -17,8 +17,9 @@ except ImportError:
     OPENPYXL_AVAILABLE = False
 
 from assets.timesheet_constants import (
+    SHIFT_DEFINITIONS,
     START_TIME_MAP, END_TIME_MAP, REALTIME_SHIFTS,
-    VACATION_FIXED, VACATION_INPUT, HALF_DAY_PAID,
+    VACATION_FIXED, VACATION_INPUT, CUSTOM_INPUT,
     VACATION_CONFIG, VACATION_INPUT_CONFIG,
     WORK_STYLE_REMOTE, WORK_STYLE_OFFICE
 )
@@ -68,7 +69,7 @@ def clock_in(
     is_assumed: bool,
     no_post: bool,
     late_reason_cb: Callable,
-    half_day_cb: Callable,
+    custom_input_cb: Callable,
     remark_cb: Callable,
     status_cb: Callable,
     confirm_cb: Optional[Callable] = None,
@@ -117,9 +118,9 @@ def clock_in(
                 "remark": remark,
             }
 
-        elif shift == HALF_DAY_PAID:
-            # 0.5日有給
-            result = half_day_cb()
+        elif shift == CUSTOM_INPUT:
+            # カスタム入力（ダイアログで時刻・備考を入力）
+            result = custom_input_cb()
             if result is None:
                 status_cb("キャンセルされました", "gray")
                 return False, ""
@@ -130,7 +131,7 @@ def clock_in(
             end_serial = time_to_excel_serial(end_q.hour(), end_q.minute())
             row_data = {
                 "date": target_date,
-                "shift_label": "0.5日有給",
+                "shift_label": SHIFT_DEFINITIONS[CUSTOM_INPUT].get("shift_label", CUSTOM_INPUT),
                 "start_time": start_serial,
                 "end_time": end_serial,
                 "overtime_type": None,
@@ -387,7 +388,7 @@ def batch_write(
     dates: List[date],
     shift: str,
     work_style: str,
-    half_day_cb: Callable,
+    custom_input_cb: Callable,
     remark_cb: Callable,
     status_cb: Callable,
 ) -> tuple:
@@ -397,17 +398,17 @@ def batch_write(
     fail_count = 0
 
     # 未定義の出勤形態チェック（ループ前に検証）
-    _known = set(VACATION_FIXED) | set(VACATION_INPUT) | {HALF_DAY_PAID} | set(REALTIME_SHIFTS)
+    _known = set(VACATION_FIXED) | set(VACATION_INPUT) | {CUSTOM_INPUT} | set(REALTIME_SHIFTS)
     if shift not in _known:
         raise UnknownShiftTypeError(shift)
 
-    # 0.5日有給・VACATION_INPUT の場合は最初に一度だけ入力を求める
-    shared_half_day = None
+    # custom_input・VACATION_INPUT の場合は最初に一度だけ入力を求める
+    shared_custom_input = None
     shared_remark = None
 
-    if shift == HALF_DAY_PAID:
-        shared_half_day = half_day_cb()
-        if shared_half_day is None:
+    if shift == CUSTOM_INPUT:
+        shared_custom_input = custom_input_cb()
+        if shared_custom_input is None:
             status_cb("キャンセルされました", "gray")
             return 0, 0
     elif shift in VACATION_INPUT:
@@ -447,15 +448,15 @@ def batch_write(
                     "overtime_type": None,
                     "remark": shared_remark,
                 }
-            elif shift == HALF_DAY_PAID:
-                start_q = shared_half_day["start"]
-                end_q = shared_half_day["end"]
-                remark = shared_half_day.get("remark", "")
+            elif shift == CUSTOM_INPUT:
+                start_q = shared_custom_input["start"]
+                end_q = shared_custom_input["end"]
+                remark = shared_custom_input.get("remark", "")
                 start_serial = time_to_excel_serial(start_q.hour(), start_q.minute())
                 end_serial = time_to_excel_serial(end_q.hour(), end_q.minute())
                 row_data = {
                     "date": d,
-                    "shift_label": "0.5日有給",
+                    "shift_label": SHIFT_DEFINITIONS[CUSTOM_INPUT].get("shift_label", CUSTOM_INPUT),
                     "start_time": start_serial,
                     "end_time": end_serial,
                     "overtime_type": None,
@@ -610,6 +611,59 @@ def output_csv(
             writer.writerow([name, shift_text])
     except Exception:
         pass
+
+
+def verify_timesheet_header(config, target_date: date) -> Optional[str]:
+    """
+    タイムシートのヘッダーセル（年セル・月セル）と対象日の年月を照合する。
+    不一致の場合は警告メッセージ文字列を返す。
+    一致 / セル値が読み取れない場合は None を返す。
+    """
+    if not OPENPYXL_AVAILABLE:
+        return None
+    try:
+        xlsx_path = _find_xlsx_or_raise(config, target_date)
+        _layout = getattr(config, 'timesheet_layout', {}) if config else {}
+        year_cell  = _layout.get("year_cell",  "C6")
+        month_cell = _layout.get("month_cell", "C7")
+        wb = openpyxl.load_workbook(str(xlsx_path), data_only=True)
+        ws = wb.active
+        raw_year  = ws[year_cell].value
+        raw_month = ws[month_cell].value
+        wb.close()
+
+        def _is_empty(v) -> bool:
+            return v is None or str(v).strip() == ""
+
+        year_empty  = _is_empty(raw_year)
+        month_empty = _is_empty(raw_month)
+
+        def _mismatch_msg(year_display: str, month_display: str) -> str:
+            return (
+                f"タイムシートの年月設定がずれている可能性があります。<br><br>"
+                f"このまま続行しますか？<br><br>"
+                f"(詳細)<br>"
+                f"打刻対象：<b>{target_date.year}/{target_date.month}</b><br>"
+                f"対象タイムシート：<b>{xlsx_path.name}</b><br>"
+                f"タイムシート内容：年セル({year_cell})=<b>{year_display}</b>,"
+                f"&nbsp;&nbsp;月セル({month_cell})=<b>{month_display}</b>"
+            )
+
+        if year_empty or month_empty:
+            year_display  = "(空)" if year_empty  else str(int(raw_year))  + "年"
+            month_display = "(空)" if month_empty else str(int(raw_month)) + "月"
+            return _mismatch_msg(year_display, month_display)
+
+        header_year  = int(raw_year)
+        header_month = int(raw_month)
+        if header_year != target_date.year or header_month != target_date.month:
+            return _mismatch_msg(f"{header_year}年", f"{header_month}月")
+
+        return None
+    except (TimesheetNotFoundError, TimesheetLockedError):
+        return None  # ファイル未検出・ロック中はスキップ（後続処理でエラー）
+    except Exception:
+        return None
 
 
 def _find_xlsx_or_raise(config, target_date: date) -> Path:

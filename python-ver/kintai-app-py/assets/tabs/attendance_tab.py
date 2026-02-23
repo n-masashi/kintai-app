@@ -1,6 +1,6 @@
 """打刻タブ"""
 import random
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import List, Optional
 
@@ -56,7 +56,7 @@ try:
         TimesheetNotFoundError, TimesheetLockedError, TimesheetWriteError,
         UnknownShiftTypeError
     )
-    from assets.timesheet_constants import REALTIME_SHIFTS
+    from assets.timesheet_constants import REALTIME_SHIFTS, SHIFT_DEFINITIONS
 except ImportError:
     ta = None
     TimesheetNotFoundError = None
@@ -64,6 +64,7 @@ except ImportError:
     TimesheetWriteError = None
     UnknownShiftTypeError = None
     REALTIME_SHIFTS = []
+    SHIFT_DEFINITIONS = {}
 
 _BATCH_ALLOWED_SHIFTS = set(REALTIME_SHIFTS) | {"シフト休", "1.0日有給"}
 
@@ -392,6 +393,9 @@ class AttendanceTab(QWidget):
         is_assumed = self.assumed_check.isChecked()
         no_post = self.no_post_check.isChecked()
 
+        if not self._confirm_if_header_mismatch(target_date):
+            return
+
         def late_reason_cb():
             from assets.dialogs.late_reason_dialog import LateReasonDialog
             dlg = LateReasonDialog(self)
@@ -399,9 +403,10 @@ class AttendanceTab(QWidget):
                 return dlg.get_reason()
             return None
 
-        def half_day_cb():
-            from assets.dialogs.half_day_dialog import HalfDayDialog
-            dlg = HalfDayDialog(self)
+        def custom_input_cb():
+            from assets.dialogs.custom_input_dialog import CustomInputDialog
+            _label = SHIFT_DEFINITIONS.get(shift, {}).get("shift_label", shift)
+            dlg = CustomInputDialog(_label, self)
             if dlg.exec_():
                 return {
                     "start": dlg.get_start_time(),
@@ -461,7 +466,7 @@ class AttendanceTab(QWidget):
                     is_assumed=is_assumed,
                     no_post=no_post,
                     late_reason_cb=late_reason_cb,
-                    half_day_cb=half_day_cb,
+                    custom_input_cb=custom_input_cb,
                     remark_cb=remark_cb,
                     status_cb=self.set_status,
                     confirm_cb=confirm_cb,
@@ -535,6 +540,18 @@ class AttendanceTab(QWidget):
             "mention": dlg.get_mention(),
             "comment": dlg.get_comment(),
         }
+
+        # 退勤処理で実際に書き込まれる対象日を算出してヘッダー照合
+        from assets.timesheet_helpers import get_now as _get_now
+        _now = _get_now()
+        _is_night = (shift == "深夜")
+        if is_cross_day:
+            _actual = _now - timedelta(days=2) if _is_night else _now - timedelta(days=1)
+        else:
+            _actual = _now - timedelta(days=1) if _is_night else _now
+        _check_date = _actual.date() if hasattr(_actual, 'date') else _actual
+        if not self._confirm_if_header_mismatch(_check_date):
+            return
 
         try:
             self._show_loading()
@@ -642,9 +659,13 @@ class AttendanceTab(QWidget):
             return
         work_style = self._get_work_style()
 
-        def half_day_cb():
-            from assets.dialogs.half_day_dialog import HalfDayDialog
-            dlg = HalfDayDialog(self)
+        if not self._confirm_if_header_mismatch(self._batch_dates[0]):
+            return
+
+        def custom_input_cb():
+            from assets.dialogs.custom_input_dialog import CustomInputDialog
+            _label = SHIFT_DEFINITIONS.get(shift, {}).get("shift_label", shift)
+            dlg = CustomInputDialog(_label, self)
             if dlg.exec_():
                 return {"start": dlg.get_start_time(), "end": dlg.get_end_time(), "remark": dlg.get_remark()}
             return None
@@ -671,7 +692,7 @@ class AttendanceTab(QWidget):
                     dates=list(self._batch_dates),
                     shift=shift,
                     work_style=work_style,
-                    half_day_cb=half_day_cb,
+                    custom_input_cb=custom_input_cb,
                     remark_cb=remark_cb,
                     status_cb=batch_status_cb,
                 )
@@ -691,6 +712,26 @@ class AttendanceTab(QWidget):
             QMessageBox.warning(self, "未定義の出勤形態", str(e))
         except Exception as e:
             QMessageBox.critical(self, "エラー", f"エラーが発生しました:\n{e}")
+
+    def _confirm_if_header_mismatch(self, check_date: date) -> bool:
+        """
+        タイムシートのヘッダーセル（年・月）と対象月を照合し、
+        不一致の場合はユーザーに続行確認を求める。
+        Returns True: 続行OK / False: キャンセル
+        """
+        if not ta:
+            return True
+        msg = ta.verify_timesheet_header(self.config, check_date)
+        if msg is None:
+            return True
+        dlg = QMessageBox(self)
+        dlg.setWindowTitle("タイムシート内容の確認")
+        dlg.setIcon(QMessageBox.Warning)
+        dlg.setTextFormat(Qt.RichText)
+        dlg.setText(msg)
+        dlg.setStandardButtons(QMessageBox.Ok | QMessageBox.Cancel)
+        dlg.setDefaultButton(QMessageBox.Cancel)
+        return dlg.exec_() == QMessageBox.Ok
 
     def _show_loading(self) -> None:
         win = self.window()

@@ -1,6 +1,6 @@
 # 勤怠打刻アプリ 詳細設計書
 
-- **バージョン**: v3.1.0
+- **バージョン**: v3.2.0
 - **最終更新**: 2026-02-23
 
 ---
@@ -83,7 +83,7 @@ kintai-app-py/
 │   │   ├── __init__.py
 │   │   ├── clock_out_dialog.py      # 退勤情報入力ダイアログ
 │   │   ├── late_reason_dialog.py    # 遅刻理由入力ダイアログ
-│   │   ├── half_day_dialog.py       # 0.5日有給入力ダイアログ
+│   │   ├── custom_input_dialog.py   # カスタム入力ダイアログ（始業・終業時刻・備考）
 │   │   └── remark_dialog.py        # 汎用備考入力ダイアログ
 │   └── tabs/
 │       ├── __init__.py
@@ -188,7 +188,7 @@ kintai-app-py/
 | `"realtime"` | 日勤・早番・遅番・深夜 | `start`, `end` |
 | `"vacation_fixed"` | シフト休・健康診断等 | `shift_label`, `start`, `end`, `remark` |
 | `"vacation_input"` | 振休・1.0日有給 | `shift_label`, `dialog_prompt` |
-| `"half_day_paid"` | 0.5日有給 | （なし） |
+| `"custom_input"` | 0.5日有給 | （なし） |
 
 ---
 
@@ -239,6 +239,7 @@ get_now() / get_today() が参照
 | `clock_out()` | `tuple[bool, str]` | 退勤処理。処理順: ターゲット日付決定 → 時刻丸め → 残業判定 → Teams 投稿 → Excel 書込。戻り値は `(成功フラグ, teams_error)` |
 | `batch_write()` | `tuple[int, int]` | 複数日付の一括記入。日付ごとにループし書込失敗は個別スキップ。戻り値は `(成功件数, 失敗件数)` |
 | `write_to_excel()` | `bool` | openpyxl で .xlsx に書込む。`get_row_for_date()` で対象行を特定し各列に書込。列位置は `config.timesheet_layout` から取得（`config=None` 時はデフォルト値） |
+| `verify_timesheet_header()` | `Optional[str]` | タイムシートの年セル・月セルを読み取り、対象日の年月と照合する。不一致または空セルの場合は警告メッセージ文字列（HTML形式）を返す。一致/ファイル未検出/ロック中は `None` を返す |
 | `output_csv()` | `None` | `{shift_display_name}.csv` を上書き出力（UTF-8 BOM なし）。詳細は下表参照 |
 | `_find_xlsx_or_raise()` | `Path` | タイムシート検索。未設定・未検出は `TimesheetNotFoundError` を raise |
 
@@ -279,10 +280,11 @@ get_now() / get_today() が参照
 | メソッド | 説明 |
 |---|---|
 | `_on_shift_changed()` | シフト選択変更時にボタンラベル・有効状態・出勤形式 Radio の有効状態を更新。REALTIME_SHIFTS **かつ** 想定入力チェックあり **かつ** 一括リスト未選択の場合、退勤ボタンを無効化し出勤ボタンに `(想定)` を付与（例: `早番  出勤(想定)`） |
+| `_confirm_if_header_mismatch()` | `verify_timesheet_header()` を呼び出し、不一致または空セルの場合に「続行/キャンセル」確認ダイアログを表示（`Qt.RichText` で太字・コンパクト行間）。続行なら `True`、キャンセルなら `False` を返す |
 | `_show_loading()` / `_hide_loading()` | `LoadingOverlay` の表示・非表示。`processEvents()` で即時描画 |
-| `on_clock_in()` | 出勤ボタン処理。コールバック定義 → `ta.clock_in()` 呼出 → 結果表示 |
-| `on_clock_out()` | 退勤ボタン処理。`ClockOutDialog` 表示 → `ta.clock_out()` 呼出 → カスタム完了ダイアログ表示（退勤時刻・次回出勤・ランダム画像） |
-| `on_batch_write()` | 一括記入ボタン処理。`ta.batch_write()` 呼出 → 結果サマリー表示 |
+| `on_clock_in()` | 出勤ボタン処理。ヘッダー照合 → コールバック定義 → `ta.clock_in()` 呼出 → 結果表示 |
+| `on_clock_out()` | 退勤ボタン処理。`ClockOutDialog` 表示 → 実際の書込対象日を算出しヘッダー照合 → `ta.clock_out()` 呼出 → カスタム完了ダイアログ表示（退勤時刻・次回出勤・ランダム画像） |
+| `on_batch_write()` | 一括記入ボタン処理。先頭日付でヘッダー照合 → `ta.batch_write()` 呼出 → 結果サマリー表示 |
 | `update_shift_types()` | 出勤形態コンボボックスを再構築（`ShiftTypeTab` から呼ばれる） |
 
 > ⚠️ **未実装機能**: 「Timesheet Check」ボタンが UI 上に存在するが、現時点では「この機能は未実装です。」メッセージを表示するのみ。将来実装予定。
@@ -338,7 +340,7 @@ get_now() / get_today() が参照
 |---|---|---|
 | `clock_out_dialog.py` | `ClockOutDialog` | 次回出勤日・次回シフト・次回勤務形態・メンション先・コメント・退勤タイプ（日跨ぎ）|
 | `late_reason_dialog.py` | `LateReasonDialog` | 遅刻理由（テキスト） |
-| `half_day_dialog.py` | `HalfDayDialog` | 始業時刻・終業時刻・備考 |
+| `custom_input_dialog.py` | `CustomInputDialog` | 始業時刻・終業時刻・備考 |
 | `remark_dialog.py` | `RemarkDialog` | 備考（テキスト）|
 
 #### `ClockOutDialog` 取得メソッド
@@ -480,6 +482,11 @@ sequenceDiagram
     participant TW as Teams Webhook
 
     U->>AT: 出勤ボタン押下
+    AT->>TA: verify_timesheet_header()
+    alt ヘッダー不一致 or 空セル
+        AT->>U: 確認ダイアログ（続行/キャンセル）
+        U->>AT: キャンセル → 処理中断
+    end
     AT->>AT: LoadingOverlay 表示
     AT->>TA: clock_in(config, shift, ...)
     alt 遅刻
@@ -508,6 +515,11 @@ sequenceDiagram
     U->>AT: 退勤ボタン押下
     AT->>U: ClockOutDialog 表示
     U->>AT: 次回出勤日・シフト・メンション等入力
+    AT->>TA: verify_timesheet_header()（書込対象日で照合）
+    alt ヘッダー不一致 or 空セル
+        AT->>U: 確認ダイアログ（続行/キャンセル）
+        U->>AT: キャンセル → 処理中断
+    end
     AT->>AT: LoadingOverlay 表示
     AT->>TA: clock_out(config, shift, clock_out_info, ...)
     TA->>XL: F列読取（始業時刻・残業判定）
@@ -635,6 +647,7 @@ Power Automate Workflow 向けの独自形式。`column` / `message` / `comment`
 | `TimesheetWriteError` (行未検出) | Excel書込エラー | 対象日の行が見つからない | タイムシートのレイアウトを確認 |
 | `TimesheetWriteError` (始業未記録) | Excel書込エラー | 退勤時に F 列（始業）が空 | 先に出勤を記録する |
 | `UnknownShiftTypeError` | 未定義の出勤形態 | 処理が定義されていないシフトが選択された | `timesheet_constants.py` / `timesheet_actions.py` に処理を追加 |
+| ヘッダー不一致（確認ダイアログ） | タイムシート内容の確認 | 年セル（C6）/月セル（C7）の値が対象日の年月と不一致、または空 | 内容を確認の上「OK」で続行、「キャンセル」で中断 |
 | Teams 投稿エラー | 完了ダイアログ内 ⚠ | Webhook URL 誤り・ネットワーク・プロキシ | URL・プロキシ設定を確認。`teams_post_debug.json` を参照 |
 
 ---
@@ -707,7 +720,7 @@ assets/logs/app.log.3      # 3世代前
 | 振休 | シフト休 | ダイアログ入力値 |
 | 1.0日有給 | 1.0日有給 | ダイアログ入力値 |
 
-#### 半日有給（`type: "half_day_paid"`）
+#### カスタム入力（`type: "custom_input"`）
 
 | 出勤形態 | E 列 | F 列 | G 列 | L 列 |
 |---|---|---|---|---|
@@ -967,7 +980,7 @@ python -m pytest tests/ -v
 | `test_vacation_fixed_health_checkup` | 健康診断(半日) → 14:00-18:00 固定 |
 | `test_vacation_input_furikyu` | 振休 → 備考ダイアログの値が入る |
 | `test_vacation_input_cancel` | 振休ダイアログキャンセル → ok=False |
-| `test_half_day_paid` | 0.5日有給 → ダイアログの時刻が使われる |
+| `test_custom_input` | custom_input → ダイアログの時刻が使われる |
 | `test_unknown_shift_raises` | 未定義シフト → `UnknownShiftTypeError` |
 
 **TestBatchWrite** — `batch_write()` 一括記入
@@ -988,6 +1001,19 @@ python -m pytest tests/ -v
 | `test_raises_when_no_name` | 名前未設定 → `TimesheetNotFoundError` |
 | `test_raises_when_file_not_found` | ファイルなし → `TimesheetNotFoundError` |
 | `test_returns_path_when_found` | 該当ファイルあり → Path を返す |
+
+**TestVerifyTimesheetHeader** — `verify_timesheet_header()` ヘッダー照合
+
+| テスト関数 | 確認内容 |
+|---|---|
+| `test_match_returns_none` | 年月が一致 → `None` を返す（ダイアログなし） |
+| `test_year_mismatch_returns_message` | 年が不一致 → 警告メッセージを返し年号が含まれる |
+| `test_month_mismatch_returns_message` | 月が不一致 → 警告メッセージを返し月が含まれる |
+| `test_month_zero_padding_treated_as_equal` | セル値が `"02"` → `int` 変換で 2 月と一致判定される |
+| `test_none_cell_value_warns` | セル値が `None`（数式未解決等）→ `(空)` を含む警告メッセージ |
+| `test_empty_string_cell_value_warns` | セル値が空文字 → `(空)` を含む警告メッセージ |
+| `test_none_and_empty_mix_warns` | 年が `None`・月が空文字の混在 → `(空)` を含む警告メッセージ |
+| `test_file_not_found_returns_none` | ファイル未検出 → `None` を返す（後続の書込でエラー処理） |
 
 ---
 

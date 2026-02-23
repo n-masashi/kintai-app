@@ -7,7 +7,7 @@
 #   "realtime"       : リアルタイム打刻（日勤・早番・遅番・深夜）
 #   "vacation_fixed" : 固定設定の休暇（時刻・備考はここで定義）
 #   "vacation_input" : 備考入力が必要な休暇
-#   "half_day_paid"  : 0.5日有給（専用ダイアログで時刻・備考を入力）
+#   "custom_input"   : ダイアログで出勤形態・時刻・備考を自由入力するタイプ
 #
 # 新しい出勤形態を追加する場合は、このdictに1エントリ追加するだけでOK。
 # timesheet_actions.py の変更は不要（既存グループの範囲内であれば）。
@@ -77,9 +77,10 @@ SHIFT_DEFINITIONS: dict = {
         "dialog_prompt": "有給の詳細を入力してください:　(例)「体調不良の為」「私用の為」",
     },
 
-    # ── 半日有給（専用ダイアログで時刻・備考を入力） ─────────────
+    # ── カスタム入力（ダイアログで出勤形態・時刻・備考を入力） ──────
     "0.5日有給": {
-        "type": "half_day_paid",
+        "type": "custom_input",
+        "shift_label": "0.5日有給",
     },
 }
 
@@ -96,8 +97,8 @@ VACATION_FIXED = [k for k, v in SHIFT_DEFINITIONS.items() if v["type"] == "vacat
 # 備考入力が必要な休暇
 VACATION_INPUT = [k for k, v in SHIFT_DEFINITIONS.items() if v["type"] == "vacation_input"]
 
-# 半日有給
-HALF_DAY_PAID = next(k for k, v in SHIFT_DEFINITIONS.items() if v["type"] == "half_day_paid")
+# カスタム入力（ダイアログで時刻・備考を入力するタイプ）
+CUSTOM_INPUT = next(k for k, v in SHIFT_DEFINITIONS.items() if v["type"] == "custom_input")
 
 # 出勤形態別の開始時刻マップ
 START_TIME_MAP = {k: v["start"] for k, v in SHIFT_DEFINITIONS.items() if v["type"] == "realtime"}
