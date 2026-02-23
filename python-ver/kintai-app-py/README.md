@@ -159,7 +159,22 @@ kintai-app-py/
 ### 4.4 `assets/timesheet_constants.py` — 定数定義
 
 アプリ全体で参照する定数をまとめたモジュール。
-新しい出勤形態を追加する場合はここと `timesheet_actions.py` への追記が必要。
+
+#### `SHIFT_DEFINITIONS`
+
+全出勤形態の定義を一元管理するdictで、このファイルの中核。
+`REALTIME_SHIFTS` / `VACATION_FIXED` / `VACATION_INPUT` 等のグループリストと
+`START_TIME_MAP` / `END_TIME_MAP` / `VACATION_CONFIG` / `VACATION_INPUT_CONFIG` は
+すべて `SHIFT_DEFINITIONS` から自動生成される。
+
+**新しい出勤形態を追加する場合は `SHIFT_DEFINITIONS` に1エントリ追加するだけでよい。`timesheet_actions.py` の変更は不要。**
+
+| `type` 値 | 対象グループ | 必須キー |
+|---|---|---|
+| `"realtime"` | 日勤・早番・遅番・深夜 | `start`, `end` |
+| `"vacation_fixed"` | シフト休・健康診断等 | `shift_label`, `start`, `end`, `remark` |
+| `"vacation_input"` | 振休・1.0日有給 | `shift_label`, `dialog_prompt` |
+| `"half_day_paid"` | 0.5日有給 | （なし） |
 
 ---
 
@@ -281,7 +296,7 @@ get_now() / get_today() が参照
 | `remove_shift()` | 選択中の出勤形態を削除し `_sync()` を呼ぶ |
 | `_sync()` | `settings.json` に保存し `AttendanceTab` のコンボボックスを更新 |
 
-> ⚠️ 新しい出勤形態を追加した場合、`timesheet_constants.py` と `timesheet_actions.py` への処理追記が必要。
+> ⚠️ 新しい出勤形態を追加した場合、`timesheet_constants.py` の `SHIFT_DEFINITIONS` への定義追加が必要。`timesheet_actions.py` の変更は不要。
 
 ---
 
@@ -614,7 +629,12 @@ assets/logs/app.log.3      # 3世代前
 
 ## 12. 定数一覧
 
-### シフト別開始・終了時刻
+### SHIFT_DEFINITIONS（出勤形態の一元定義）
+
+`timesheet_constants.py` の `SHIFT_DEFINITIONS` に全出勤形態が定義されている。
+以下はその内容のサマリー。
+
+#### リアルタイムシフト（`type: "realtime"`）
 
 | シフト | 開始時刻 | 終了時刻 |
 |---|---|---|
@@ -622,6 +642,28 @@ assets/logs/app.log.3      # 3世代前
 | 早番 | 07:00 | 16:00 |
 | 遅番 | 14:30 | 23:30 |
 | 深夜 | 22:30 | 31:30（翌7:30） |
+
+#### 固定休暇（`type: "vacation_fixed"`）
+
+| 出勤形態 | E 列（shift_label） | F 列（始業） | G 列（終業） | L 列（備考） |
+|---|---|---|---|---|
+| シフト休 | シフト休 | なし | なし | なし |
+| 健康診断(半日) | 0.5日有給 | 14:00 | 18:00 | 午後健康診断+0.5有給 |
+| 1日人間ドック | 日勤 | 10:00 | 18:00 | 1日人間ドック |
+| 慶弔休暇 | 慶弔休暇 | なし | なし | なし |
+
+#### 備考入力休暇（`type: "vacation_input"`）
+
+| 出勤形態 | E 列（shift_label） | L 列（備考） |
+|---|---|---|
+| 振休 | シフト休 | ダイアログ入力値 |
+| 1.0日有給 | 1.0日有給 | ダイアログ入力値 |
+
+#### 半日有給（`type: "half_day_paid"`）
+
+| 出勤形態 | E 列 | F 列 | G 列 | L 列 |
+|---|---|---|---|---|
+| 0.5日有給 | 0.5日有給 | ダイアログ入力値 | ダイアログ入力値 | ダイアログ入力値 |
 
 ### その他定数
 
@@ -631,18 +673,6 @@ assets/logs/app.log.3      # 3世代前
 | `ROUND_UNIT_MIN` | 15 | 時刻丸め単位（分） |
 | `WORK_STYLE_REMOTE` | `"リモート"` | 勤務形態：リモート |
 | `WORK_STYLE_OFFICE` | `"出社"` | 勤務形態：出社 |
-
-### 休暇種別の固定設定
-
-| 出勤形態 | E 列（shift_label） | F 列（始業） | G 列（終業） | L 列（備考） |
-|---|---|---|---|---|
-| シフト休 | シフト休 | なし | なし | なし |
-| 健康診断(半日) | 0.5日有給 | 14:00 | 18:00 | 午後健康診断+0.5有給 |
-| 1日人間ドック | 日勤 | 10:00 | 18:00 | 1日人間ドック |
-| 慶弔休暇 | 慶弔休暇 | なし | なし | なし |
-| 振休 | シフト休 | なし | なし | ダイアログ入力値 |
-| 1.0日有給 | 1.0日有給 | なし | なし | ダイアログ入力値 |
-| 0.5日有給 | 0.5日有給 | ダイアログ入力値 | ダイアログ入力値 | ダイアログ入力値 |
 
 ---
 

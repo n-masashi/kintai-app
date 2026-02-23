@@ -25,7 +25,7 @@ class ShiftTypeTab(QWidget):
         layout.setSpacing(8)
         layout.setContentsMargins(12, 12, 12, 12)
 
-        desc_label = QLabel("出勤形態を管理します。追加・削除した変更は即座に設定ファイルに保存されます。\n⚠️ 新しい出勤形態を追加した場合、必ずtimesheet_constants.py, timesheet_actions.pyに処理内容を追記すること")
+        desc_label = QLabel("出勤形態を管理します。追加・削除した変更は即座に設定ファイルに保存されます。\n⚠️ 新しい出勤形態を追加した場合、必ず timesheet_constants.py の SHIFT_DEFINITIONS に定義を追加すること")
         desc_label.setWordWrap(True)
         layout.addWidget(desc_label)
 

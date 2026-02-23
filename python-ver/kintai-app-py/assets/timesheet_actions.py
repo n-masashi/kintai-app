@@ -54,7 +54,10 @@ class UnknownShiftTypeError(Exception):
     """出勤形態に対応する処理が定義されていない"""
     def __init__(self, shift: str):
         self.shift = shift
-        super().__init__(f"「{shift}」の処理はまだ定義されていません")
+        super().__init__(
+            f"「{shift}」の処理はまだ定義されていません。\n"
+            f"timesheet_constants.py の SHIFT_DEFINITIONS に定義を追加してください。"
+        )
 
 
 def clock_in(
