@@ -612,3 +612,52 @@ class TestVerifyTimesheetHeader:
         base_config.timesheet_display_name = "山田"
         result = verify_timesheet_header(base_config, date(2026, 2, 10))
         assert result is None
+
+    def test_non_numeric_text_both_warns(self, tmp_path, base_config):
+        """年・月セルが非数値テキスト（'aaaa'等）→ (無効: ...) を含む警告を返す"""
+        base_config.timesheet_folder = str(tmp_path)
+        base_config.timesheet_display_name = "山田"
+        (tmp_path / "202602山田.xlsx").touch()
+        wb = _make_ws_with_header("aaaa", "bbbb")
+        with patch("assets.timesheet_actions.openpyxl.load_workbook", return_value=wb):
+            result = verify_timesheet_header(base_config, date(2026, 2, 10))
+        assert result is not None
+        assert "無効" in result
+        assert "aaaa" in result
+        assert "bbbb" in result
+
+    def test_non_numeric_text_year_only_warns(self, tmp_path, base_config):
+        """年セルのみ非数値、月セルは正常 → 警告を返す"""
+        base_config.timesheet_folder = str(tmp_path)
+        base_config.timesheet_display_name = "山田"
+        (tmp_path / "202602山田.xlsx").touch()
+        wb = _make_ws_with_header("aaaa", 2)
+        with patch("assets.timesheet_actions.openpyxl.load_workbook", return_value=wb):
+            result = verify_timesheet_header(base_config, date(2026, 2, 10))
+        assert result is not None
+        assert "無効" in result
+        assert "aaaa" in result
+
+    def test_text_with_kanji_warns(self, tmp_path, base_config):
+        """'2026年' のような数字＋文字の混在 → int変換失敗で警告を返す"""
+        base_config.timesheet_folder = str(tmp_path)
+        base_config.timesheet_display_name = "山田"
+        (tmp_path / "202602山田.xlsx").touch()
+        wb = _make_ws_with_header("2026年", "2月")
+        with patch("assets.timesheet_actions.openpyxl.load_workbook", return_value=wb):
+            result = verify_timesheet_header(base_config, date(2026, 2, 10))
+        assert result is not None
+        assert "無効" in result
+
+    def test_mixed_empty_and_invalid_warns(self, tmp_path, base_config):
+        """年セルが None・月セルが非数値テキスト → (空) と (無効: ...) が両方含まれる"""
+        base_config.timesheet_folder = str(tmp_path)
+        base_config.timesheet_display_name = "山田"
+        (tmp_path / "202602山田.xlsx").touch()
+        wb = _make_ws_with_header(None, "aaaa")
+        with patch("assets.timesheet_actions.openpyxl.load_workbook", return_value=wb):
+            result = verify_timesheet_header(base_config, date(2026, 2, 10))
+        assert result is not None
+        assert "(空)" in result
+        assert "無効" in result
+        assert "aaaa" in result

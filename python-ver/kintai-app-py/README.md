@@ -188,7 +188,7 @@ kintai-app-py/
 | `"realtime"` | 日勤・早番・遅番・深夜 | `start`, `end` |
 | `"vacation_fixed"` | シフト休・健康診断等 | `shift_label`, `start`, `end`, `remark` |
 | `"vacation_input"` | 振休・1.0日有給 | `shift_label`, `dialog_prompt` |
-| `"custom_input"` | 0.5日有給 | （なし） |
+| `"custom_input"` | 0.5日有給 | `shift_label` |
 
 ---
 
@@ -239,7 +239,7 @@ get_now() / get_today() が参照
 | `clock_out()` | `tuple[bool, str]` | 退勤処理。処理順: ターゲット日付決定 → 時刻丸め → 残業判定 → Teams 投稿 → Excel 書込。戻り値は `(成功フラグ, teams_error)` |
 | `batch_write()` | `tuple[int, int]` | 複数日付の一括記入。日付ごとにループし書込失敗は個別スキップ。戻り値は `(成功件数, 失敗件数)` |
 | `write_to_excel()` | `bool` | openpyxl で .xlsx に書込む。`get_row_for_date()` で対象行を特定し各列に書込。列位置は `config.timesheet_layout` から取得（`config=None` 時はデフォルト値） |
-| `verify_timesheet_header()` | `Optional[str]` | タイムシートの年セル・月セルを読み取り、対象日の年月と照合する。不一致または空セルの場合は警告メッセージ文字列（HTML形式）を返す。一致/ファイル未検出/ロック中は `None` を返す |
+| `verify_timesheet_header()` | `Optional[str]` | タイムシートの年セル・月セルを読み取り、対象日の年月と照合する。不一致・空セル・非数値テキスト（`"aaaa"`, `"2026年"` 等）の場合は警告メッセージ文字列（HTML形式）を返す。一致/ファイル未検出/ロック中は `None` を返す |
 | `output_csv()` | `None` | `{shift_display_name}.csv` を上書き出力（UTF-8 BOM なし）。詳細は下表参照 |
 | `_find_xlsx_or_raise()` | `Path` | タイムシート検索。未設定・未検出は `TimesheetNotFoundError` を raise |
 
@@ -647,7 +647,7 @@ Power Automate Workflow 向けの独自形式。`column` / `message` / `comment`
 | `TimesheetWriteError` (行未検出) | Excel書込エラー | 対象日の行が見つからない | タイムシートのレイアウトを確認 |
 | `TimesheetWriteError` (始業未記録) | Excel書込エラー | 退勤時に F 列（始業）が空 | 先に出勤を記録する |
 | `UnknownShiftTypeError` | 未定義の出勤形態 | 処理が定義されていないシフトが選択された | `timesheet_constants.py` / `timesheet_actions.py` に処理を追加 |
-| ヘッダー不一致（確認ダイアログ） | タイムシート内容の確認 | 年セル（C6）/月セル（C7）の値が対象日の年月と不一致、または空 | 内容を確認の上「OK」で続行、「キャンセル」で中断 |
+| ヘッダー不一致（確認ダイアログ） | タイムシート内容の確認 | 年セル（C6）/月セル（C7）の値が対象日の年月と不一致・空・非数値テキスト | 内容を確認の上「OK」で続行、「キャンセル」で中断 |
 | Teams 投稿エラー | 完了ダイアログ内 ⚠ | Webhook URL 誤り・ネットワーク・プロキシ | URL・プロキシ設定を確認。`teams_post_debug.json` を参照 |
 
 ---
@@ -1014,6 +1014,10 @@ python -m pytest tests/ -v
 | `test_empty_string_cell_value_warns` | セル値が空文字 → `(空)` を含む警告メッセージ |
 | `test_none_and_empty_mix_warns` | 年が `None`・月が空文字の混在 → `(空)` を含む警告メッセージ |
 | `test_file_not_found_returns_none` | ファイル未検出 → `None` を返す（後続の書込でエラー処理） |
+| `test_non_numeric_text_both_warns` | 年・月セルが `"aaaa"` 等の非数値テキスト → `(無効: ...)` を含む警告を返す |
+| `test_non_numeric_text_year_only_warns` | 年セルのみ非数値、月セルは正常 → 警告を返す |
+| `test_text_with_kanji_warns` | `"2026年"` のような数字＋漢字混在 → `int` 変換失敗で警告を返す |
+| `test_mixed_empty_and_invalid_warns` | 年セルが `None`・月セルが非数値の混在 → `(空)` と `(無効: ...)` が両方含まれる |
 
 ---
 

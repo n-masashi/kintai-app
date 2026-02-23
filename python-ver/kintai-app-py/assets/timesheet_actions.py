@@ -635,8 +635,12 @@ def verify_timesheet_header(config, target_date: date) -> Optional[str]:
         def _is_empty(v) -> bool:
             return v is None or str(v).strip() == ""
 
-        year_empty  = _is_empty(raw_year)
-        month_empty = _is_empty(raw_month)
+        def _to_int(v):
+            """数値変換。失敗時は None を返す（ValueError / TypeError を握り潰さない）"""
+            try:
+                return int(v)
+            except (ValueError, TypeError):
+                return None
 
         def _mismatch_msg(year_display: str, month_display: str) -> str:
             return (
@@ -649,13 +653,24 @@ def verify_timesheet_header(config, target_date: date) -> Optional[str]:
                 f"&nbsp;&nbsp;月セル({month_cell})=<b>{month_display}</b>"
             )
 
-        if year_empty or month_empty:
-            year_display  = "(空)" if year_empty  else str(int(raw_year))  + "年"
-            month_display = "(空)" if month_empty else str(int(raw_month)) + "月"
+        year_empty  = _is_empty(raw_year)
+        month_empty = _is_empty(raw_month)
+
+        header_year  = None if year_empty  else _to_int(raw_year)
+        header_month = None if month_empty else _to_int(raw_month)
+
+        year_invalid  = not year_empty  and header_year  is None
+        month_invalid = not month_empty and header_month is None
+
+        if year_empty or month_empty or year_invalid or month_invalid:
+            year_display  = ("(空)"              if year_empty   else
+                             f"(無効: {raw_year})" if year_invalid  else
+                             f"{header_year}年")
+            month_display = ("(空)"               if month_empty  else
+                             f"(無効: {raw_month})" if month_invalid else
+                             f"{header_month}月")
             return _mismatch_msg(year_display, month_display)
 
-        header_year  = int(raw_year)
-        header_month = int(raw_month)
         if header_year != target_date.year or header_month != target_date.month:
             return _mismatch_msg(f"{header_year}年", f"{header_month}月")
 
