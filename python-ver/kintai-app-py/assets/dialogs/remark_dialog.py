@@ -9,7 +9,7 @@ from PyQt5.QtCore import Qt
 class RemarkDialog(QDialog):
     """備考を入力させる汎用ダイアログ"""
 
-    def __init__(self, title: str = "備考入力", parent=None):
+    def __init__(self, title: str = "備考入力", placeholder: str = "備考（任意）", parent=None):
         super().__init__(parent)
         self.setWindowTitle(title)
         self.setMinimumWidth(350)
@@ -23,7 +23,7 @@ class RemarkDialog(QDialog):
         layout.addWidget(label)
 
         self.remark_edit = QLineEdit()
-        self.remark_edit.setPlaceholderText("備考（任意）")
+        self.remark_edit.setPlaceholderText(placeholder)
         layout.addWidget(self.remark_edit)
 
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)

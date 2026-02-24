@@ -69,12 +69,15 @@ SHIFT_DEFINITIONS: dict = {
     "振休": {
         "type": "vacation_input",
         "shift_label": "シフト休",
-        "dialog_prompt": "振休の詳細を入力してください:　(例)「12/25出社分」",
+        "dialog_prompt": "振休の詳細を入力してください",
+        "placeholder": "(例)「12/25出社分」",
     },
     "1.0日有給": {
         "type": "vacation_input",
         "shift_label": "1.0日有給",
-        "dialog_prompt": "有給の詳細を入力してください:　(例)「体調不良の為」「私用の為」",
+        "dialog_prompt": "有給の詳細を入力してください",
+        "placeholder": "(例)「私用の為」「体調不良の為」",
+        "default_remark": "私用の為",
     },
 
     # ── カスタム入力（ダイアログで出勤形態・時刻・備考を入力） ──────
@@ -122,6 +125,8 @@ VACATION_INPUT_CONFIG = {
     k: {
         "shift_label": v["shift_label"],
         "dialog_prompt": v["dialog_prompt"],
+        "placeholder": v.get("placeholder", ""),
+        "default_remark": v.get("default_remark", ""),
     }
     for k, v in SHIFT_DEFINITIONS.items() if v["type"] == "vacation_input"
 }

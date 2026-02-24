@@ -101,6 +101,7 @@ def _setup_font(app: QApplication) -> None:
 
 
 def main() -> None:
+    os.chdir(Path(__file__).parent)
     setup_logging()
     log = get_logger("kintai.main")
     log.info("=== アプリ起動 ===")

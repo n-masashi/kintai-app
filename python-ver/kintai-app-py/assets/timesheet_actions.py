@@ -104,11 +104,11 @@ def clock_in(
         elif shift in VACATION_INPUT:
             # 備考入力が必要な休暇: VACATION_INPUT_CONFIG からダイアログプロンプトを取得
             input_config = VACATION_INPUT_CONFIG[shift]
-            result = remark_cb(input_config["dialog_prompt"])
+            result = remark_cb(input_config["dialog_prompt"], input_config["placeholder"])
             if result is None:
                 status_cb("キャンセルされました", "gray")
                 return False, ""
-            remark = result
+            remark = result or input_config["default_remark"]
             row_data = {
                 "date": target_date,
                 "shift_label": input_config["shift_label"],
@@ -413,10 +413,11 @@ def batch_write(
             return 0, 0
     elif shift in VACATION_INPUT:
         input_config = VACATION_INPUT_CONFIG[shift]
-        shared_remark = remark_cb(input_config["dialog_prompt"])
+        shared_remark = remark_cb(input_config["dialog_prompt"], input_config["placeholder"])
         if shared_remark is None:
             status_cb("キャンセルされました", "gray")
             return 0, 0
+        shared_remark = shared_remark or input_config["default_remark"]
 
     for d in dates:
         try:

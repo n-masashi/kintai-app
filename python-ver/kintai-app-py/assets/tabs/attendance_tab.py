@@ -415,9 +415,9 @@ class AttendanceTab(QWidget):
                 }
             return None
 
-        def remark_cb(title="備考入力"):
+        def remark_cb(title="備考入力", placeholder="備考（任意）"):
             from assets.dialogs.remark_dialog import RemarkDialog
-            dlg = RemarkDialog(title=title, parent=self)
+            dlg = RemarkDialog(title=title, placeholder=placeholder, parent=self)
             if dlg.exec_():
                 return dlg.get_remark()
             return None
@@ -670,9 +670,9 @@ class AttendanceTab(QWidget):
                 return {"start": dlg.get_start_time(), "end": dlg.get_end_time(), "remark": dlg.get_remark()}
             return None
 
-        def remark_cb(title="備考入力"):
+        def remark_cb(title="備考入力", placeholder="備考（任意）"):
             from assets.dialogs.remark_dialog import RemarkDialog
-            dlg = RemarkDialog(title=title, parent=self)
+            dlg = RemarkDialog(title=title, placeholder=placeholder, parent=self)
             if dlg.exec_():
                 return dlg.get_remark()
             return None
