@@ -606,7 +606,7 @@ def output_csv(
         csv_path = output_dir / f"{name}.csv"
         shift_text = f"{shift}(ﾃ" if work_style == WORK_STYLE_REMOTE else shift
 
-        with open(csv_path, "w", newline="", encoding="utf-8") as f:
+        with open(csv_path, "w", newline="", encoding="cp932") as f:
             writer = csv.writer(f)
             writer.writerow(["name", "shift"])
             writer.writerow([name, shift_text])
