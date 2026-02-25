@@ -1,6 +1,6 @@
-# 開発停止中
-
-python-ver/kintai-app-py　に移行したため
+# 　powershell版は開発停止中
+社内ポリシーでpythonを自席にいれることができないのでpsで作成したが以下の通りいろいろと微妙でした
+仮想環境を立てて、自由度の高いpy（python-ver/kintai-app-py）で作成・使用する方式にした
 
 ・psだと自由度が低い
 
