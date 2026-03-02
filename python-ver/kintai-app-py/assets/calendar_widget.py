@@ -7,7 +7,7 @@ from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
     QLabel, QPushButton, QSizePolicy, QFrame
 )
-from PyQt5.QtCore import Qt, pyqtSignal, QDate
+from PyQt5.QtCore import Qt, pyqtSignal, QDate, QTimer
 from PyQt5.QtGui import QFont, QColor, QPalette
 
 from assets.theme_engine import get_theme_colors
@@ -184,12 +184,17 @@ class CalendarWidget(QWidget):
         today = get_today()
         self._year = today.year
         self._month = today.month
-        self._selected_date: Optional[date] = None
+        self._selected_date: Optional[date] = today
         self._cells: list = []
         self._day_header_labels: list = []
 
         self._init_ui()
         self._build_grid()
+
+        # 1分ごとに日付変更を検出して今日に切り替える
+        self._date_check_timer = QTimer(self)
+        self._date_check_timer.timeout.connect(self._check_date_rollover)
+        self._date_check_timer.start(60_000)
 
     def _init_ui(self) -> None:
         """UI を初期化する"""
@@ -356,6 +361,12 @@ class CalendarWidget(QWidget):
                 lbl.setStyleSheet(f"color: {c['cal_header_saturday']}; font-weight: bold;")
             else:
                 lbl.setStyleSheet(f"color: {c['text_primary']}; font-weight: bold;")
+
+    def _check_date_rollover(self) -> None:
+        """日付が変わっていたら自動的に今日に切り替える"""
+        today = get_today()
+        if today != self._selected_date:
+            self.select_date(today)
 
     def set_theme(self, theme: str) -> None:
         """テーマを切り替えてグリッドを再描画する"""
