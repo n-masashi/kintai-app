@@ -192,6 +192,7 @@ class CalendarWidget(QWidget):
         self._build_grid()
 
         # 1分ごとに日付変更を検出して今日に切り替える
+        self._last_known_today = today
         self._date_check_timer = QTimer(self)
         self._date_check_timer.timeout.connect(self._check_date_rollover)
         self._date_check_timer.start(60_000)
@@ -363,10 +364,12 @@ class CalendarWidget(QWidget):
                 lbl.setStyleSheet(f"color: {c['text_primary']}; font-weight: bold;")
 
     def _check_date_rollover(self) -> None:
-        """日付が変わっていたら自動的に今日に切り替える"""
+        """日付が変わっていたら自動的に今日に切り替える（選択日に関わらず）"""
         today = get_today()
-        if today != self._selected_date:
-            self.select_date(today)
+        if today == self._last_known_today:
+            return
+        self._last_known_today = today
+        self.select_date(today)
 
     def set_theme(self, theme: str) -> None:
         """テーマを切り替えてグリッドを再描画する"""
