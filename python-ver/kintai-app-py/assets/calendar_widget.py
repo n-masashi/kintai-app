@@ -369,7 +369,11 @@ class CalendarWidget(QWidget):
         if today == self._last_known_today:
             return
         self._last_known_today = today
-        self.select_date(today)
+        self._selected_date = today
+        self._year = today.year
+        self._month = today.month
+        self._build_grid()
+        self.date_selected.emit(today)
 
     def set_theme(self, theme: str) -> None:
         """テーマを切り替えてグリッドを再描画する"""
