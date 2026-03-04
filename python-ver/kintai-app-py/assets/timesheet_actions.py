@@ -328,8 +328,10 @@ def clock_out(
                 wb_check.close()
             except (TimesheetWriteError, TimesheetLockedError):
                 raise
-            except Exception:
-                pass
+            except Exception as e:
+                _log.warning("残業判定スキップ: %s (start_value型=%s)", e,
+                             type(start_value).__name__ if 'start_value' in dir() else "未取得",
+                             exc_info=True)
 
         row_data = {
             "date": target_date,
