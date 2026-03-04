@@ -315,6 +315,8 @@ def clock_out(
                 # openpyxl は時刻書式セルを datetime.time / datetime.datetime で返す場合がある
                 if isinstance(start_value, (int, float)):
                     start_serial = float(start_value)
+                elif isinstance(start_value, timedelta):
+                    start_serial = start_value.total_seconds() / (24 * 3600)
                 elif hasattr(start_value, 'hour') and hasattr(start_value, 'minute'):
                     start_serial = (start_value.hour * 60 + start_value.minute) / (24 * 60)
                 else:

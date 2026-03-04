@@ -242,6 +242,13 @@ class TestClockOutTargetAndSerial:
                                   start_serial=time_to_excel_serial(10, 0))
         assert row["overtime_type"] is None
 
+    def test_overtime_detected_timedelta_start(self, base_config):
+        """openpyxlがtimedeltaを返す場合でも客先指示が書かれる"""
+        now = datetime(2026, 2, 21, 20, 0)   # 10:00 〜 20:00 = 10h
+        row = self._run_clock_out(now, "日勤", False, base_config,
+                                  start_serial=timedelta(hours=10))
+        assert row["overtime_type"] == "客先指示"
+
 
 # ────────── clock_in ──────────
 
