@@ -329,16 +329,13 @@ def clock_out(
             except Exception:
                 pass
 
-        # 備考設定
-        remark = clock_out_info.get("comment", "") or None
-
         row_data = {
             "date": target_date,
             "shift_label": None,   # 退勤時はE列を上書きしない
             "start_time": None,    # 退勤時はF列を上書きしない
             "end_time": end_serial,
             "overtime_type": overtime_type,
-            "remark": remark,
+            "remark": None,        # コメントはTeams投稿専用。タイムシートには書かない
         }
 
         # Teams投稿（Excel書込より先に実行）

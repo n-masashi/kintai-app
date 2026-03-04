@@ -40,7 +40,7 @@ class TestOutputCsv:
         base_config.output_folder = str(tmp_path)
         base_config.shift_display_name = "山田"
         output_csv(base_config, "日勤", "出社", date(2026, 2, 21))
-        content = (tmp_path / "山田.csv").read_text(encoding="utf-8")
+        content = (tmp_path / "山田.csv").read_text(encoding="cp932")
         assert "日勤" in content
         assert "(ﾃ" not in content
 
@@ -48,7 +48,7 @@ class TestOutputCsv:
         base_config.output_folder = str(tmp_path)
         base_config.shift_display_name = "山田"
         output_csv(base_config, "日勤", "リモート", date(2026, 2, 21))
-        content = (tmp_path / "山田.csv").read_text(encoding="utf-8")
+        content = (tmp_path / "山田.csv").read_text(encoding="cp932")
         assert "日勤(ﾃ" in content
 
     def test_csv_fallback_when_output_folder_empty(self, base_config):
@@ -64,7 +64,7 @@ class TestOutputCsv:
         base_config.shift_display_name = "山田"
         output_csv(base_config, "日勤", "出社", date(2026, 2, 21))
         output_csv(base_config, "早番", "リモート", date(2026, 2, 21))
-        content = (tmp_path / "山田.csv").read_text(encoding="utf-8")
+        content = (tmp_path / "山田.csv").read_text(encoding="cp932")
         assert "早番(ﾃ" in content
         assert "日勤" not in content
 
@@ -256,7 +256,7 @@ class TestClockIn:
         if custom_input_cb is None:
             custom_input_cb = lambda: None
         if remark_cb is None:
-            remark_cb = lambda title="": None
+            remark_cb = lambda title="", placeholder="": None
 
         with patch("assets.timesheet_actions.get_now", return_value=now_dt), \
              patch("assets.timesheet_actions.get_today",
@@ -351,7 +351,7 @@ class TestClockIn:
         """振休 → remark_cb が呼ばれ備考が入る"""
         ok, row = self._run_clock_in(
             "振休",
-            remark_cb=lambda title="": "12/25出社分",
+            remark_cb=lambda title="", placeholder="":"12/25出社分",
             base_config=base_config,
         )
         assert ok
@@ -362,7 +362,7 @@ class TestClockIn:
         """振休ダイアログでキャンセル → ok=False"""
         ok, _ = self._run_clock_in(
             "振休",
-            remark_cb=lambda title="": None,
+            remark_cb=lambda title="", placeholder="":None,
             base_config=base_config,
         )
         assert ok is False
@@ -406,7 +406,7 @@ class TestClockIn:
                     no_post=True,
                     late_reason_cb=lambda: None,
                     custom_input_cb=lambda: None,
-                    remark_cb=lambda title="": None,
+                    remark_cb=lambda title="", placeholder="":None,
                     status_cb=_noop_status,
                 )
 
@@ -419,7 +419,7 @@ class TestBatchWrite:
         if custom_input_cb is None:
             custom_input_cb = lambda: None
         if remark_cb is None:
-            remark_cb = lambda title="": None
+            remark_cb = lambda title="", placeholder="":None
 
         with patch("assets.timesheet_actions._find_xlsx_or_raise",
                    return_value=Path("/fake/file.xlsx")), \
@@ -459,7 +459,7 @@ class TestBatchWrite:
                 shift="日勤",
                 work_style="リモート",
                 custom_input_cb=lambda: None,
-                remark_cb=lambda title="": None,
+                remark_cb=lambda title="", placeholder="":None,
                 status_cb=_noop_status,
             )
         assert success == 1 and fail == 1
@@ -472,7 +472,7 @@ class TestBatchWrite:
         """振休ダイアログキャンセル → (0, 0) を返す"""
         success, fail = self._run_batch(
             [date(2026, 2, 10)], "振休", base_config,
-            remark_cb=lambda title="": None,
+            remark_cb=lambda title="", placeholder="":None,
         )
         assert success == 0 and fail == 0
 
